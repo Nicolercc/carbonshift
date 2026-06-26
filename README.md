@@ -164,7 +164,7 @@ python run.py --validate-only
 | 5 | `acp7` | ACP-7 Asbestos (`vq35-j9qm`) | `asbestos_projects` |
 | 6 | `ll84` | LL84/97 Energy (`5zyy-y8am`) | `energy_emissions` |
 
-`crosswalk` must always run first — every subsequent step filters records against BINs already in `building_crosswalk`.
+`crosswalk` must run first — every subsequent step filters against BINs in `building_crosswalk`. `pluto` must run before `dob`, `acp7`, and `ll84` — those three steps resolve their BIN allowlists from the `buildings` table (populated by PLUTO) to satisfy foreign key constraints. Running them before PLUTO will insert nothing and produce no error.
 
 ### Validation report (`--validate-only`)
 
@@ -504,14 +504,14 @@ carbonshift/
 
 | # | Name | Dataset ID | Queens filter | Destination |
 |---|---|---|---|---|
-| 1 | Building Footprints | `5zhs-2jue` | BIN starts with `4` | `building_crosswalk` |
+| 1 | Building Footprints | `5zhs-2jue` | `bin >= '4000000' AND bin < '5000000'` | `building_crosswalk` |
 | 2 | PLUTO | `64uk-42ks` | `borough='QN'` | `buildings`, `building_profiles` |
-| 3 | HPD Housing Maintenance Code Violations | `wvxf-dwi5` | `boroid='4'` | `building_violations` |
-| 4 | DOB Safety Violations | `855j-jady` | BIN starts with `4` | `building_violations` |
-| 5 | DOB Violations (legacy BIS) | `3h2n-5cm9` | `boro='4'` | `building_violations` |
-| 6 | DOB ECB Violations | `6bgk-3dad` | BIN starts with `4` | `building_violations` |
-| 7 | Asbestos Control Program ACP-7 | `vq35-j9qm` | BIN starts with `4` | `asbestos_projects` |
-| 8 | NYC Building Energy & Water Disclosure (LL84/97) | `5zyy-y8am` | `upper(borough)='QUEENS'` | `energy_emissions` |
+| 3 | HPD Housing Maintenance Code Violations | `wvxf-dwi5` | `boroid='4'` (BBL post-filtered against crosswalk) | `building_violations` |
+| 4 | DOB Safety Violations | `855j-jady` | `bin >= '4000000' AND bin < '5000000'` (BIN post-filtered against `buildings`) | `building_violations` |
+| 5 | DOB Violations (legacy BIS) | `3h2n-5cm9` | `boro='4'` (BBL post-filtered against `buildings`) | `building_violations` |
+| 6 | DOB ECB Violations | `6bgk-3dad` | `bin >= '4000000' AND bin < '5000000'` (BIN post-filtered against `buildings`) | `building_violations` |
+| 7 | Asbestos Control Program ACP-7 | `vq35-j9qm` | `bin >= '4000000' AND bin < '5000000'` (BIN post-filtered against `buildings`) | `asbestos_projects` |
+| 8 | NYC Building Energy & Water Disclosure (LL84/97) | `5zyy-y8am` | `upper(borough)='QUEENS'` (BIN post-filtered against `buildings`) | `energy_emissions` |
 
 **Not ingested (by design):**
 - ACP-5 asbestos assessment reports — no public bulk API exists; portal-only at `a826-web01.nyc.gov`
@@ -616,22 +616,23 @@ ORDER BY projects DESC;
 
 **Borough field names differ across datasets.** The pipeline filters using the numeric BBL/BIN prefix (`4` = Queens), not the free-text borough field, which appears as `"QUEENS"`, `"QN"`, `"Q"`, or integer `4` depending on the dataset.
 
+**Socrata SoQL does not support `starts_with()` on all datasets.** Building Footprints, DOB Safety, DOB ECB, and ACP-7 reject `starts_with(bin, '4')` with a 400 error. All four use the equivalent range filter instead: `bin >= '4000000' AND bin < '5000000'`.
+
 **LL84 rows can represent multiple buildings.** One disclosure row may list multiple BBLs and BINs in comma-delimited fields. `fetch_ll84_97.py` expands these into one `energy_emissions` row per resolved BIN — all sharing the same `source_property_id`.
 
 **Asbestos violations are keyword-matched.** There is no standalone asbestos violations feed. `is_asbestos_related` is set by scanning violation description text for: `asbestos`, `ACM`, `abatement`, `ACP-5`, `ACP-7`.
 
-**Run `crosswalk` first.** Every other fetcher filters against BINs already in `building_crosswalk`. Running any step on an empty crosswalk inserts nothing and produces no error — it just silently returns 0 rows.
+**Run `crosswalk` then `pluto` before the remaining steps.** DOB, ACP-7, and LL84/97 post-filter their BINs against the `buildings` table (populated by the PLUTO step) to satisfy the `building_violations → buildings(bin)` and `asbestos_projects → buildings(bin)` foreign key constraints. Buildings present in the crosswalk but absent from PLUTO (e.g. parking structures, parks) will not receive violations or energy records. HPD filters by BBL against the crosswalk directly — the residential buildings HPD cites are universally covered by PLUTO.
 
-**DOB Legacy dataset has no BIN field.** BIN is reconstructed from `boro` + `block` + `lot` and looked up in the crosswalk. Buildings not present in the crosswalk will be skipped.
+**DOB Legacy dataset has no BIN field.** BIN is reconstructed from `boro` + `block` + `lot` and looked up in the `buildings` table. Buildings not present in `buildings` will be skipped.
 
 **Web query tool is SELECT-only.** The `/query` route rejects any statement that does not start with `SELECT`. This is enforced in `src/query/lookup.py:run_sql`.
 
 ---
 
-## What Comes Next (out of scope for this phase)
+## What Comes Next
 
-- Carbon estimate: per-building-class median EUI from `energy_emissions`, applied to buildings without measured data
-- Risk scoring: point-weighted model using `building_violations`, `asbestos_projects`, and `building_profiles.year_built`
 - Citywide search (currently Queens only)
-- ACP-5 portal lookups, Con Edison utility data
+- ACP-5 portal lookups (no bulk API exists — portal-only at `a826-web01.nyc.gov`)
+- Con Edison utility data integration
 - User accounts / saved searches

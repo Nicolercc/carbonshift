@@ -1,6 +1,6 @@
 # CarbonShift — Data Ingestion Context File
-**Last updated:** June 24, 2026
-**Purpose:** Paste this into Claude Code to hand off the data ingestion work. It contains everything needed to go from zero to a validated, joined Queens building dataset — no product/UI decisions included, since none of that is in scope for this phase.
+**Last updated:** June 26, 2026
+**Purpose:** Project context file for CarbonShift. Originally written to hand off the data ingestion work; updated to reflect the current completed state of the pipeline, scoring, and web UI.
 
 ---
 
@@ -8,7 +8,7 @@
 
 CarbonShift is a climate-tech / built-environment transparency app. It turns fragmented NYC public building records (property data, housing and building violations, asbestos filings, energy/emissions disclosures) into a plain-language building profile, plus a carbon estimate.
 
-**Current milestone (this handoff):** ingest and correctly join NYC public data for **Queens only**, build a working BIN/BBL crosswalk, and produce a validated dataset ready for carbon-estimate and risk-scoring logic. **No UI. No personal carbon tracking. No citywide search.** Those are later milestones — see Section I.
+**Current state (as of June 26, 2026):** Ingestion pipeline, scoring pipeline, and browser-based web UI are all complete and validated for Queens. See Section I for what remains out of scope.
 
 **Tech stack:** Python 3.10+, SQLite (standard SQL only, no SQLite-specific syntax — clean migration path to Postgres later), `requests`, `python-dotenv`, `pandas`.
 
@@ -215,9 +215,9 @@ CREATE TABLE building_record_sources (
 2. **Ingest Building Footprints**, filtered to BIN/BBL prefix `4` (Queens). Populate `building_crosswalk`. Spot-check: pick 3 known Queens addresses and confirm their BBL→BIN resolves correctly.
 3. **Ingest PLUTO**, filtered to BBLs present in `building_crosswalk`. Populate `buildings` + `building_profiles`.
 4. **Ingest HPD violations**, filtered to BBLs in the crosswalk. Insert into `building_violations` with `source_dataset = 'HPD'`.
-5. **Ingest DOB Safety Violations + DOB Violations (legacy) + DOB ECB Violations**, filtered to BINs in the crosswalk. Insert into `building_violations` with the appropriate `source_dataset` value each. Run the asbestos keyword match (`asbestos`, `ACM`, `abatement`, `ACP-5`, `ACP-7`) against violation descriptions and set `is_asbestos_related = 1` where matched.
-6. **Ingest ACP-7**, filtered to BBL/BIN in the crosswalk. Populate `asbestos_projects`.
-7. **Ingest LL84/97**, filtered to BBL/BIN in the crosswalk. **Watch for list-valued BBL/BIN fields on this dataset specifically** (Section D) — a single row may need to expand into multiple `energy_emissions` rows, one per BBL/BIN, all pointing at the same source_property_id.
+5. **Ingest DOB Safety Violations + DOB Violations (legacy) + DOB ECB Violations**, BIN-range-filtered via SoQL then post-filtered against BINs in `buildings` (not `building_crosswalk` — see Section H). Insert into `building_violations` with the appropriate `source_dataset` value each. Run the asbestos keyword match (`asbestos`, `ACM`, `abatement`, `ACP-5`, `ACP-7`) against violation descriptions and set `is_asbestos_related = 1` where matched.
+6. **Ingest ACP-7**, BIN-range-filtered via SoQL then post-filtered against BINs in `buildings`. Populate `asbestos_projects`.
+7. **Ingest LL84/97**, filtered to `upper(borough)='QUEENS'` then post-filtered against BINs in `buildings`. **Watch for list-valued BBL/BIN fields on this dataset specifically** (Section D) — a single row may need to expand into multiple `energy_emissions` rows, one per BBL/BIN, all pointing at the same source_property_id.
 8. **Paginate everything.** Socrata defaults to a row limit per request — use `$limit`/`$offset` loops, don't assume one request returns the full filtered set.
 9. Populate `building_record_sources` as you go (source dataset ID + URL + timestamp), so every record is traceable later.
 
@@ -238,21 +238,33 @@ CREATE TABLE building_record_sources (
 - **LL84/97 rows can represent multiple buildings.** Don't assume 1 row = 1 BBL = 1 BIN.
 - **Socrata throttles unauthenticated requests fast** across 8 dataset pulls. Confirm `SOCRATA_APP_TOKEN` is set before starting ingestion, not after hitting a wall.
 - **Borough field names are not consistent across datasets.** Use the BBL/BIN numeric prefix, not a free-text borough field, per Section D.
+- **Socrata SoQL does not support `starts_with()` on all datasets.** Building Footprints, DOB Safety, DOB ECB, and ACP-7 return a 400 error for `starts_with(bin, '4')`. Use the equivalent range filter: `bin >= '4000000' AND bin < '5000000'`.
+- **Foreign key constraint: run PLUTO before DOB/ACP-7/LL84.** `building_violations` and `asbestos_projects` have FK constraints on `buildings(bin)`. DOB, ACP-7, and LL84/97 fetchers resolve their BIN allowlists from the `buildings` table (populated by PLUTO) — not from `building_crosswalk` — to avoid FK failures. Buildings in the crosswalk but not in PLUTO (parking structures, parks, undeveloped lots) will be silently skipped. HPD uses crosswalk BBLs directly, which is safe because HPD-violated buildings are universally covered by PLUTO.
 - **There is no standalone "asbestos violations" dataset.** Asbestos-adjacent enforcement only surfaces via keyword-matching DOB/ECB violation text (Step 5 above) — don't go looking for a dedicated dataset that doesn't exist.
 - **ACP-5 cannot be bulk-ingested.** Don't spend time looking for an API — there isn't one.
 
 ---
 
-## SECTION I — Explicitly Out of Scope (for this handoff)
+## SECTION I — Out of Scope
 
-- Any UI, map, or visualization
 - Personal carbon tracking (signup/login, activity logging, emission factors)
-- Citywide search (Queens only)
-- ACP-5 lookups, Con Edison utility data, "concern type" filtering, "Learn" screen — all backlog
-- Carbon estimate and risk score *calculation logic* — this file covers getting clean, joined data into the database; the modeled-EUI and risk-scoring logic consume this data but are a separate task once ingestion is validated
+- Citywide search (Queens only at present)
+- ACP-5 portal lookups — no bulk API; portal-only at `a826-web01.nyc.gov`
+- Con Edison utility data, "concern type" filtering, "Learn" screen — backlog
+- Any UI beyond the existing Flask web interface
+
+**Completed as of June 26, 2026 (previously out of scope):**
+- Ingestion pipeline (`run.py`) — all 8 datasets, paginated, Queens-filtered, FK-safe
+- Carbon estimate scoring (`score.py`) — class-median and borough-median modelled EUI; 359,408 buildings scored
+- Risk scoring (`score.py`) — point-weighted model; Low / Moderate / High / Critical labels
+- Browser-based web UI (`web.py`) — search, building detail, charts, map, SQL editor, CSV export, dark mode
 
 ---
 
-## SECTION J — What Consumes This Data Next (for context only)
+## SECTION J — Scoring Logic Summary
 
-Once ingestion is validated, the next task pulls per-building-class median EUI from Queens's own `energy_emissions` rows (grouped by `building_profiles.building_class`), and runs a point-weighted risk score against `building_violations` + `asbestos_projects` + `building_profiles.year_built`. Neither is part of this ingestion handoff — flagged here only so field names in the schema above aren't changed without checking what downstream logic expects.
+`score.py` runs two passes after ingestion:
+
+**Carbon estimates** — for buildings with measured LL84/97 data, records actual GHG directly. For the rest (~95%), computes median GHG intensity (mt CO₂e per ft²) per `building_class` from measured peers and multiplies by building area. Falls back to a Queens-wide median if fewer than 3 class peers exist. Writes to `carbon_estimates`; `eui_source` = `measured` / `class_median` / `borough_median`.
+
+**Risk scoring** — point-weighted score written to `building_risk_scores`. Do not rename columns in `building_violations`, `asbestos_projects`, or `building_profiles` without checking `src/scoring/risk.py`.

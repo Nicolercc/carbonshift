@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+{% block title %}{{ bldg.full_address or bldg.bin }} — CarbonShift{% endblock %}
+{% set has_charts = ghg_chart_json or viol_chart_json %}
+
+{% block content %}
+<!-- Header -->
+<div class="building-header mb-4">
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+      <div class="address">{{ bldg.full_address or "(no address on record)" }}</div>
+      <div class="meta">
+        BIN <strong>{{ bldg.bin }}</strong>
+        {% if bldg.bbl %}&nbsp;&middot;&nbsp;BBL <strong>{{ bldg.bbl }}</strong>{% endif %}
+        {% if bldg.zip_code %}&nbsp;&middot;&nbsp;Zip <strong>{{ bldg.zip_code }}</strong>{% endif %}
+        {% if bldg.borough %}&nbsp;&middot;&nbsp;{{ bldg.borough }}{% endif %}
+      </div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a href="/building/{{ bldg.bin }}/export.csv" class="btn btn-light btn-sm">
+        <i class="bi bi-download me-1"></i>Export CSV
+      </a>
+      <a href="/search?q={{ request.referrer or '/' }}" onclick="history.back();return false;"
+         class="btn btn-outline-light btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Back
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Risk + Carbon summary row -->
+{% if bldg.risk_label or bldg.estimated_ghg_metric_tons %}
+<div class="row g-3 mb-4">
+  {% if bldg.risk_label %}
+  <div class="col-sm-6 col-md-3">
+    <div class="card p-3 text-center h-100">
+      <div class="small text-muted mb-1">Risk Score</div>
+      <div class="display-6
+        {% if bldg.risk_label == 'Low' %}text-success
+        {% elif bldg.risk_label == 'Moderate' %}text-warning
+        {% elif bldg.risk_label == 'High' %}fw-bold
+        {% else %}text-danger{% endif %}"
+        style="{% if bldg.risk_label == 'High' %}color:#fd7e14{% endif %}">
+        {{ bldg.risk_score }}
+      </div>
+      <div class="badge mt-1
+        {% if bldg.risk_label == 'Low' %}bg-success
+        {% elif bldg.risk_label == 'Moderate' %}bg-warning text-dark
+        {% elif bldg.risk_label == 'High' %}bg-orange
+        {% else %}bg-danger{% endif %}"
+        style="{% if bldg.risk_label == 'High' %}background:#fd7e14{% endif %}">
+        {{ bldg.risk_label }} Risk
+      </div>
+      <div class="small text-muted mt-1">Confidence: {{ bldg.confidence_label or "—" }}</div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if bldg.estimated_ghg_metric_tons %}
+  <div class="col-sm-6 col-md-3">
+    <div class="card p-3 text-center h-100">
+      <div class="small text-muted mb-1">
+        Carbon Estimate
+        {% if bldg.eui_source == 'measured' %}
+          <span class="badge bg-success ms-1">measured</span>
+        {% elif bldg.eui_source == 'class_median' %}
+          <span class="badge bg-secondary ms-1">modelled</span>
+        {% else %}
+          <span class="badge bg-light text-dark border ms-1">est.</span>
+        {% endif %}
+      </div>
+      <div class="display-6 {% if bldg.estimated_ghg_metric_tons|float > 2000 %}text-danger{% else %}text-dark{% endif %}">
+        {{ "{:,.0f}".format(bldg.estimated_ghg_metric_tons|float) }}
+      </div>
+      <div class="small text-muted">metric tons CO₂e / yr</div>
+      {% if bldg.eui_source != 'measured' and bldg.peer_building_count %}
+      <div class="small text-muted mt-1">Based on {{ bldg.peer_building_count }} peer buildings</div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if bldg.risk_detail %}
+  <div class="col-md">
+    <div class="card p-3 h-100">
+      <div class="small text-muted fw-semibold mb-1">Risk factors</div>
+      <div class="small">{{ bldg.risk_detail }}</div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="row g-4">
+
+  <!-- Profile -->
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-building me-2"></i>Building Profile</div>
+      <div class="card-body">
+        <table class="table table-sm mb-0">
+          <tbody>
+            <tr><th class="text-muted fw-normal" width="55%">Year Built</th><td>{{ bldg.year_built or "—" }}</td></tr>
+            <tr><th class="text-muted fw-normal">Building Class</th><td><code>{{ bldg.building_class or "—" }}</code></td></tr>
+            <tr><th class="text-muted fw-normal">Land Use</th><td>{{ bldg.land_use or "—" }}</td></tr>
+            <tr><th class="text-muted fw-normal">Floors</th><td>{{ bldg.number_of_floors or "—" }}</td></tr>
+            <tr><th class="text-muted fw-normal">Res. Units</th><td>{{ bldg.residential_units or "—" }}</td></tr>
+            <tr><th class="text-muted fw-normal">Total Units</th><td>{{ bldg.total_units or "—" }}</td></tr>
+            <tr>
+              <th class="text-muted fw-normal">Building Area</th>
+              <td>{% if bldg.building_area %}{{ "{:,.0f}".format(bldg.building_area|float) }} ft²{% else %}—{% endif %}</td>
+            </tr>
+            <tr>
+              <th class="text-muted fw-normal">Lot Area</th>
+              <td>{% if bldg.lot_area %}{{ "{:,.0f}".format(bldg.lot_area|float) }} ft²{% else %}—{% endif %}</td>
+            </tr>
+            <tr><th class="text-muted fw-normal">Block / Lot</th><td>{{ bldg.block }} / {{ bldg.lot }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Energy -->
+  <div class="col-md-8">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-lightning-charge me-2"></i>Energy &amp; Emissions (LL84/LL97)</span>
+        <div class="d-flex gap-1 align-items-center">
+          {% if energy and ghg_chart_json %}
+          <div class="btn-group btn-group-sm" role="group">
+            <button class="btn btn-outline-secondary active" id="btnEnergyTable"
+                    onclick="showEnergyView('table')">Table</button>
+            <button class="btn btn-outline-secondary" id="btnEnergyChart"
+                    onclick="showEnergyView('chart')">Chart</button>
+          </div>
+          {% endif %}
+          {% if energy %}
+          <a href="/export/energy.csv" class="btn btn-outline-secondary btn-sm py-0">
+            <i class="bi bi-download"></i>
+          </a>
+          {% endif %}
+        </div>
+      </div>
+      <div class="card-body p-0">
+        {% if energy %}
+        <div id="energyTable">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead>
+                <tr>
+                  <th>Year</th>
+                  <th class="text-end">GHG (mt CO₂e)</th>
+                  <th class="text-end">Site EUI (kBtu/ft²)</th>
+                  <th class="text-center">Energy Star</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for e in energy %}
+                <tr>
+                  <td>{{ e.reporting_year or "—" }}</td>
+                  <td class="text-end fw-bold {% if e.ghg_emissions_metric_tons_co2e and e.ghg_emissions_metric_tons_co2e|float > 1000 %}text-danger{% endif %}">
+                    {% if e.ghg_emissions_metric_tons_co2e %}{{ "{:,.1f}".format(e.ghg_emissions_metric_tons_co2e|float) }}{% else %}—{% endif %}
+                  </td>
+                  <td class="text-end">
+                    {% if e.site_eui %}{{ "{:,.1f}".format(e.site_eui|float) }}{% else %}—{% endif %}
+                  </td>
+                  <td class="text-center">
+                    {% if e.energy_star_score %}
+                      <span class="badge {% if e.energy_star_score|int >= 75 %}bg-success{% elif e.energy_star_score|int >= 50 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                        {{ e.energy_star_score }}
+                      </span>
+                    {% else %}—{% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% if ghg_chart_json %}
+        <div id="energyChart" style="display:none; padding:1rem">
+          <canvas id="canvasGhgTrend"></canvas>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="p-3 text-muted small">
+          <i class="bi bi-info-circle me-1"></i>
+          No LL84/97 energy disclosure found. Building may be under 25,000 ft² or not yet reported.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div><!-- /row -->
+
+<!-- Per-building charts row (violations donut) -->
+{% if viol_chart_json %}
+<div class="row g-4 mt-0">
+  <div class="col-md-4">
+    <div class="card p-3">
+      <canvas id="canvasViolBreakdown" height="260"></canvas>
+    </div>
+  </div>
+  <div class="col-md-8">
+    <div class="card p-3 h-100">
+      <p class="section-heading">Violation sources explained</p>
+      <ul class="small text-muted mb-0">
+        <li><strong>HPD</strong> — Housing Preservation &amp; Development: housing quality &amp; habitability.</li>
+        <li><strong>DOB_SAFETY</strong> — Dept of Buildings Safety Violations (current ECB system).</li>
+        <li><strong>DOB_LEGACY</strong> — Older DOB violations from the legacy BIS system.</li>
+        <li><strong>DOB_ECB</strong> — Environmental Control Board enforcement hearings &amp; penalties.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Violations -->
+<div class="card mt-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>
+      <i class="bi bi-exclamation-triangle me-2"></i>Violations
+      <span class="badge bg-secondary ms-1">{{ violations|length }}</span>
+      {% if asbestos_count %}
+        <span class="badge bg-danger ms-1">{{ asbestos_count }} asbestos</span>
+      {% endif %}
+    </span>
+    <div class="d-flex gap-2 align-items-center">
+      <input id="vFilter" class="form-control form-control-sm" style="width:180px"
+             placeholder="Filter…">
+      <a href="/export/violations.csv" class="btn btn-outline-secondary btn-sm py-0">
+        <i class="bi bi-download"></i>
+      </a>
+    </div>
+  </div>
+  {% if violations %}
+  <div class="table-responsive">
+    <table class="table table-sm table-hover mb-0" id="vTable">
+      <thead>
+        <tr>
+          <th>Source</th>
+          <th>Date</th>
+          <th>Class</th>
+          <th>Status</th>
+          <th>Description</th>
+          <th class="text-end">Penalty</th>
+          <th class="text-end">Balance Due</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in violations %}
+        <tr {% if v.is_asbestos_related %}class="violation-row-asbestos"{% endif %}>
+          <td><span class="badge bg-secondary">{{ v.source_dataset }}</span></td>
+          <td class="text-nowrap">{{ (v.issue_date or "")[:10] }}</td>
+          <td><strong>{{ v.violation_class or "—" }}</strong></td>
+          <td>
+            <span class="badge {% if 'OPEN' in (v.current_status or '')|upper or 'ACTIVE' in (v.current_status or '')|upper %}bg-danger{% else %}bg-secondary{% endif %}">
+              {{ v.current_status or "—" }}
+            </span>
+          </td>
+          <td class="small" style="max-width:360px">
+            {% if v.is_asbestos_related %}
+              <i class="bi bi-exclamation-diamond-fill text-danger me-1" title="Asbestos-related"></i>
+            {% endif %}
+            {{ (v.violation_description or "")[:200] }}
+          </td>
+          <td class="text-end text-nowrap small">
+            {% if v.penalty_imposed %}${{ "{:,.0f}".format(v.penalty_imposed|float) }}{% else %}—{% endif %}
+          </td>
+          <td class="text-end text-nowrap small">
+            {% if v.balance_due and v.balance_due|float > 0 %}
+              <span class="text-danger">${{ "{:,.0f}".format(v.balance_due|float) }}</span>
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-muted small">No violations on record.</div>
+  {% endif %}
+</div>
+
+<!-- Asbestos Projects -->
+{% if asbestos %}
+<div class="card mt-4">
+  <div class="card-header">
+    <i class="bi bi-radioactive me-2 text-danger"></i>Asbestos Abatement Projects (ACP-7)
+    <span class="badge bg-danger ms-1">{{ asbestos|length }}</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Control #</th>
+          <th>Status</th>
+          <th>Start</th>
+          <th>End</th>
+          <th>Contractor</th>
+          <th>Air Monitor</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in asbestos %}
+        <tr>
+          <td><code>{{ a.control_number or "—" }}</code></td>
+          <td>{{ a.project_status or "—" }}</td>
+          <td>{{ (a.project_start_date or "")[:10] }}</td>
+          <td>{{ (a.project_end_date or "")[:10] }}</td>
+          <td>{{ a.contractor_name or "—" }}</td>
+          <td>{{ a.air_monitor_name or "—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{% if has_charts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  if (document.documentElement.getAttribute('data-bs-theme') === 'dark') {
+    Chart.defaults.color = '#adb5bd';
+    Chart.defaults.borderColor = 'rgba(255,255,255,.1)';
+  }
+})();
+</script>
+{% endif %}
+<script>
+// Violation table filter
+document.getElementById('vFilter')?.addEventListener('input', function() {
+  const val = this.value.toLowerCase();
+  document.querySelectorAll('#vTable tbody tr').forEach(tr => {
+    tr.style.display = tr.textContent.toLowerCase().includes(val) ? '' : 'none';
+  });
+});
+
+{% if ghg_chart_json %}
+let ghgChart = null;
+function showEnergyView(view) {
+  const tableEl = document.getElementById('energyTable');
+  const chartEl = document.getElementById('energyChart');
+  const btnT = document.getElementById('btnEnergyTable');
+  const btnC = document.getElementById('btnEnergyChart');
+  if (view === 'chart') {
+    tableEl.style.display = 'none';
+    chartEl.style.display = 'block';
+    btnT.classList.remove('active');
+    btnC.classList.add('active');
+    if (!ghgChart) {
+      ghgChart = new Chart(
+        document.getElementById('canvasGhgTrend'),
+        JSON.parse({{ ghg_chart_json | tojson }})
+      );
+    }
+  } else {
+    tableEl.style.display = 'block';
+    chartEl.style.display = 'none';
+    btnT.classList.add('active');
+    btnC.classList.remove('active');
+  }
+}
+{% endif %}
+
+{% if viol_chart_json %}
+document.addEventListener('DOMContentLoaded', () => {
+  new Chart(
+    document.getElementById('canvasViolBreakdown'),
+    JSON.parse({{ viol_chart_json | tojson }})
+  );
+});
+{% endif %}
+</script>
+{% endblock %}

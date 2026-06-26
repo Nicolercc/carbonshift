@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}CarbonShift — Queens Building Data{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+  <div class="col-lg-8 offset-lg-2 text-center">
+    <h1 class="fw-bold mb-1">Queens Building Data</h1>
+    <p class="text-muted mb-4">Search by address, BIN, BBL, or zip code to explore building profiles,
+      violations, energy disclosures, and asbestos filings.</p>
+    <form action="/search" method="get" class="d-flex justify-content-center gap-2">
+      <input class="form-control form-control-lg" style="max-width:520px"
+             name="q" placeholder="e.g. Jamaica, 11101, 4059918, 4026780001">
+      <button class="btn btn-success btn-lg px-4" type="submit">
+        <i class="bi bi-search"></i> Search
+      </button>
+    </form>
+  </div>
+</div>
+
+{% if stats %}
+<div class="row g-3 mb-5">
+  <div class="col-6 col-md-3">
+    <div class="card stat-card p-3 text-center h-100">
+      <div class="display-6">{{ "{:,}".format(stats.buildings) }}</div>
+      <div class="text-muted small">Buildings</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card stat-card p-3 text-center h-100">
+      <div class="display-6">{{ "{:,}".format(stats.violations) }}</div>
+      <div class="text-muted small">Violations</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card stat-card p-3 text-center h-100">
+      <div class="display-6">{{ "{:,}".format(stats.buildings_with_energy) }}</div>
+      <div class="text-muted small">With Energy Data</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card stat-card p-3 text-center h-100">
+      <div class="display-6 text-danger">{{ "{:,}".format(stats.asbestos_violations) }}</div>
+      <div class="text-muted small">Asbestos Flags</div>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+  <i class="bi bi-info-circle me-2"></i>
+  Database is empty. Run <code>python run.py</code> to ingest data first.
+</div>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-search me-2"></i>Search Buildings</div>
+      <div class="card-body">
+        <p class="text-muted small">Search by any part of an address, zip code, BIN (7-digit
+          building ID), or BBL (10-digit tax lot ID).</p>
+        <ul class="small text-muted ps-3">
+          <li>Partial address: <code>Grand Avenue</code></li>
+          <li>Zip code: <code>11101</code></li>
+          <li>BIN: <code>4059918</code></li>
+          <li>BBL: <code>4026780001</code></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-code-square me-2"></i>SQL Query</div>
+      <div class="card-body">
+        <p class="text-muted small">Run any SELECT query directly against the database and
+          download results as CSV.</p>
+        <a href="/query" class="btn btn-outline-secondary btn-sm">Open Query Tool →</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-download me-2"></i>Bulk Export</div>
+      <div class="card-body">
+        <p class="text-muted small">Download full tables as CSV for offline analysis.</p>
+        <div class="d-flex flex-column gap-1">
+          <a href="/export/buildings.csv" class="btn btn-outline-success btn-sm">Buildings</a>
+          <a href="/export/violations.csv" class="btn btn-outline-warning btn-sm">Violations</a>
+          <a href="/export/energy.csv" class="btn btn-outline-primary btn-sm">Energy & Emissions</a>
+          <a href="/export/asbestos.csv" class="btn btn-outline-danger btn-sm">Asbestos Projects</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

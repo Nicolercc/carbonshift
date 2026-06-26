@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% block title %}SQL Query — CarbonShift{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-9">
+    <h5 class="mb-3"><i class="bi bi-code-square me-2"></i>SQL Query</h5>
+
+    <div class="card mb-3">
+      <div class="card-body">
+        <form method="post" id="queryForm">
+          <textarea class="form-control sql-textarea mb-2" name="sql" id="sqlInput"
+                    rows="5" placeholder="SELECT * FROM buildings LIMIT 20"
+                    spellcheck="false">{{ sql }}</textarea>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-success">
+              <i class="bi bi-play-fill me-1"></i>Run Query
+            </button>
+            <button type="button" class="btn btn-outline-secondary" onclick="clearQuery()">
+              Clear
+            </button>
+            {% if rows %}
+            <form method="post" action="/export/custom.csv" style="display:inline">
+              <input type="hidden" name="sql" value="{{ sql }}">
+              <button type="submit" class="btn btn-outline-primary">
+                <i class="bi bi-download me-1"></i>Download CSV
+              </button>
+            </form>
+            {% endif %}
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-danger"><i class="bi bi-x-circle me-2"></i>{{ error }}</div>
+    {% endif %}
+
+    {% if rows %}
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>{{ rows|length }} row(s) returned</span>
+        <div class="d-flex gap-2 align-items-center">
+          {% if auto_chart_json %}
+          <div class="btn-group btn-group-sm" role="group">
+            <button class="btn btn-outline-secondary active" id="btnQTable"
+                    onclick="showQueryView('table')">
+              <i class="bi bi-table me-1"></i>Table
+            </button>
+            <button class="btn btn-outline-secondary" id="btnQChart"
+                    onclick="showQueryView('chart')">
+              <i class="bi bi-bar-chart-fill me-1"></i>Chart
+            </button>
+          </div>
+          {% endif %}
+          <form method="post" action="/export/custom.csv" class="d-inline">
+            <input type="hidden" name="sql" value="{{ sql }}">
+            <button type="submit" class="btn btn-sm btn-outline-secondary py-0">
+              <i class="bi bi-download me-1"></i>CSV
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Table view -->
+      <div id="queryTable">
+        <div class="table-responsive" style="max-height:480px; overflow-y:auto">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="sticky-top bg-body">
+              <tr>
+                {% for col in cols %}<th>{{ col }}</th>{% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in rows %}
+              <tr>
+                {% for col in cols %}
+                <td class="small">{{ row[col] if row[col] is not none else "" }}</td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Chart view -->
+      {% if auto_chart_json %}
+      <div id="queryChart" style="display:none; padding:1.5rem">
+        <div class="mb-2 d-flex gap-2">
+          <span class="text-muted small">Chart type:</span>
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-secondary active" onclick="changeQueryChartType('bar',this)">Bar</button>
+            <button class="btn btn-outline-secondary" onclick="changeQueryChartType('line',this)">Line</button>
+            <button class="btn btn-outline-secondary" onclick="changeQueryChartType('doughnut',this)">Donut</button>
+          </div>
+          <span class="text-muted small ms-2">Orientation:</span>
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-secondary active" onclick="changeQueryAxis('x',this)">Vertical</button>
+            <button class="btn btn-outline-secondary" onclick="changeQueryAxis('y',this)">Horizontal</button>
+          </div>
+        </div>
+        <canvas id="canvasQueryChart"></canvas>
+      </div>
+      {% endif %}
+    </div>
+    {% elif sql and not error %}
+    <div class="alert alert-secondary">Query returned 0 rows.</div>
+    {% endif %}
+  </div>
+
+  <!-- Sidebar: schema reference -->
+  <div class="col-lg-3">
+    <h6 class="section-heading">Tables</h6>
+    {% set tables = [
+      ("buildings", ["bin", "bbl", "full_address", "zip_code", "borough", "latitude", "longitude"]),
+      ("building_profiles", ["building_id", "year_built", "building_class", "land_use", "residential_units", "total_units", "number_of_floors", "building_area"]),
+      ("building_violations", ["building_id", "source_dataset", "violation_class", "issue_date", "current_status", "violation_description", "penalty_imposed", "is_asbestos_related"]),
+      ("energy_emissions", ["building_id", "reporting_year", "ghg_emissions_metric_tons_co2e", "site_eui", "energy_star_score"]),
+      ("asbestos_projects", ["building_id", "control_number", "project_status", "project_start_date", "project_end_date", "contractor_name"]),
+      ("building_crosswalk", ["bin", "bbl", "base_bbl", "borough_code"]),
+    ] %}
+    {% for table, cols_list in tables %}
+    <div class="card mb-2">
+      <div class="card-header py-1 px-2" style="font-size:.75rem; cursor:pointer"
+           onclick="insertTable('{{ table }}')">
+        <i class="bi bi-table me-1 text-success"></i>{{ table }}
+      </div>
+      <ul class="list-unstyled mb-0 px-2 py-1">
+        {% for col in cols_list %}
+        <li class="small text-muted" style="font-family:monospace; font-size:.75rem">{{ col }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+
+    <h6 class="section-heading mt-3">Example Queries</h6>
+    <div class="d-flex flex-column gap-1">
+      {% set examples = [
+        ("Buildings with most violations", "SELECT b.full_address, COUNT(*) AS n\nFROM building_violations v\nJOIN buildings b ON b.bin = v.building_id\nGROUP BY v.building_id\nORDER BY n DESC\nLIMIT 20"),
+        ("Highest GHG emitters", "SELECT b.full_address, e.reporting_year,\n  e.ghg_emissions_metric_tons_co2e\nFROM energy_emissions e\nJOIN buildings b ON b.bin = e.building_id\nORDER BY e.ghg_emissions_metric_tons_co2e DESC\nLIMIT 20"),
+        ("Asbestos violations by agency", "SELECT source_dataset, COUNT(*) AS n\nFROM building_violations\nWHERE is_asbestos_related = 1\nGROUP BY source_dataset"),
+        ("Buildings with open violations", "SELECT b.full_address, v.source_dataset,\n  v.violation_class, v.issue_date\nFROM building_violations v\nJOIN buildings b ON b.bin = v.building_id\nWHERE UPPER(v.current_status) LIKE '%OPEN%'\n  OR UPPER(v.current_status) LIKE '%ACTIVE%'\nLIMIT 50"),
+        ("Pre-1940 buildings", "SELECT full_address, zip_code\nFROM buildings b\nJOIN building_profiles p ON p.building_id = b.bin\nWHERE p.year_built < 1940\nORDER BY p.year_built\nLIMIT 50"),
+        ("Energy Star by building class", "SELECT p.building_class,\n  ROUND(AVG(e.energy_star_score),1) AS avg_score,\n  COUNT(*) AS n\nFROM energy_emissions e\nJOIN building_profiles p ON p.building_id = e.building_id\nWHERE e.energy_star_score IS NOT NULL\nGROUP BY p.building_class\nORDER BY avg_score DESC"),
+      ] %}
+      {% for label, query in examples %}
+      <button class="btn btn-outline-secondary btn-sm text-start"
+              style="font-size:.75rem" onclick='setQuery({{ query|tojson }})'>
+        {{ label }}
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if auto_chart_json %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  if (document.documentElement.getAttribute('data-bs-theme') === 'dark') {
+    Chart.defaults.color = '#adb5bd';
+    Chart.defaults.borderColor = 'rgba(255,255,255,.1)';
+  }
+})();
+</script>
+{% endif %}
+<script>
+function setQuery(sql) {
+  document.getElementById('sqlInput').value = sql;
+  document.getElementById('sqlInput').focus();
+}
+function insertTable(name) {
+  document.getElementById('sqlInput').value = `SELECT * FROM ${name} LIMIT 20`;
+  document.getElementById('sqlInput').focus();
+}
+function clearQuery() {
+  document.getElementById('sqlInput').value = '';
+  document.getElementById('sqlInput').focus();
+}
+
+{% if auto_chart_json %}
+let queryChart = null;
+const queryCfg = JSON.parse({{ auto_chart_json | tojson }});
+
+function showQueryView(view) {
+  const tbl = document.getElementById('queryTable');
+  const cht = document.getElementById('queryChart');
+  const btnT = document.getElementById('btnQTable');
+  const btnC = document.getElementById('btnQChart');
+  if (view === 'chart') {
+    tbl.style.display = 'none';
+    cht.style.display = 'block';
+    btnT.classList.remove('active');
+    btnC.classList.add('active');
+    if (!queryChart) {
+      queryChart = new Chart(document.getElementById('canvasQueryChart'), queryCfg);
+    }
+  } else {
+    tbl.style.display = 'block';
+    cht.style.display = 'none';
+    btnT.classList.add('active');
+    btnC.classList.remove('active');
+  }
+}
+function changeQueryChartType(type, btn) {
+  btn.closest('.btn-group').querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (!queryChart) return;
+  queryChart.config.type = type;
+  if (type === 'doughnut') {
+    delete queryChart.options.indexAxis;
+  }
+  queryChart.update();
+}
+function changeQueryAxis(axis, btn) {
+  btn.closest('.btn-group').querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (!queryChart) return;
+  queryChart.options.indexAxis = axis;
+  queryChart.update();
+}
+{% endif %}
+</script>
+{% endblock %}

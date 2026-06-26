@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+{% block title %}Search: {{ q or 'Browse' }} — CarbonShift{% endblock %}
+
+{% block content %}
+<!-- Filter bar -->
+<form action="/search" method="get" id="filterForm">
+  <input type="hidden" name="q" value="{{ q }}">
+  <div class="card mb-3">
+    <div class="card-body py-2">
+      <div class="row g-2 align-items-end">
+        <div class="col-sm-6 col-md-3">
+          <label class="form-label small mb-0">Zip Code</label>
+          <input class="form-control form-control-sm" name="zip" placeholder="11101"
+                 value="{{ filters.zip_code }}">
+        </div>
+        <div class="col-sm-6 col-md-2">
+          <label class="form-label small mb-0">Building Class</label>
+          <input class="form-control form-control-sm" name="class" placeholder="D, R…"
+                 value="{{ filters.building_class }}">
+        </div>
+        <div class="col-sm-6 col-md-2">
+          <label class="form-label small mb-0">Year Built (from–to)</label>
+          <div class="d-flex gap-1">
+            <input class="form-control form-control-sm" name="year_min" placeholder="1900"
+                   value="{{ filters.year_min or '' }}">
+            <input class="form-control form-control-sm" name="year_max" placeholder="2024"
+                   value="{{ filters.year_max or '' }}">
+          </div>
+        </div>
+        <div class="col-sm-6 col-md-2">
+          <label class="form-label small mb-0">Risk</label>
+          <select class="form-select form-select-sm" name="risk">
+            <option value="">Any</option>
+            {% for lbl in ['Low','Moderate','High','Critical'] %}
+            <option value="{{ lbl }}" {% if filters.risk_label == lbl %}selected{% endif %}>{{ lbl }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-sm-6 col-md-2">
+          <div class="d-flex flex-column gap-1 pt-1">
+            <div class="form-check mb-0">
+              <input class="form-check-input" type="checkbox" name="violations" value="1" id="chkV"
+                     {% if filters.has_violations %}checked{% endif %}>
+              <label class="form-check-label small" for="chkV">Has violations</label>
+            </div>
+            <div class="form-check mb-0">
+              <input class="form-check-input" type="checkbox" name="asbestos" value="1" id="chkA"
+                     {% if filters.has_asbestos %}checked{% endif %}>
+              <label class="form-check-label small" for="chkA">Asbestos only</label>
+            </div>
+            <div class="form-check mb-0">
+              <input class="form-check-input" type="checkbox" name="energy" value="1" id="chkE"
+                     {% if filters.has_energy %}checked{% endif %}>
+              <label class="form-check-label small" for="chkE">Has energy data</label>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm-6 col-md-1 d-flex gap-1">
+          <button type="submit" class="btn btn-success btn-sm flex-grow-1">
+            <i class="bi bi-search"></i>
+          </button>
+          <a href="/search?q={{ q }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-x"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+
+<!-- Header + view toggle -->
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <div>
+    <span class="fw-semibold">{{ results|length }} building(s)</span>
+    {% if q %}<span class="text-muted"> for <em>{{ q }}</em></span>{% endif %}
+    {% if active_filters %}<span class="badge bg-secondary ms-1">{{ active_filters|length }} filter(s)</span>{% endif %}
+  </div>
+  <div class="d-flex gap-2">
+    <div class="btn-group btn-group-sm" id="viewToggle">
+      <a class="btn btn-outline-secondary {% if view=='table' %}active{% endif %}"
+         href="{{ request.url | replace('&view=map','') | replace('?view=map','?') | replace('view=map','') }}&view=table">
+        <i class="bi bi-table me-1"></i>Table
+      </a>
+      <a class="btn btn-outline-secondary {% if view=='map' %}active{% endif %}"
+         href="{{ request.url | replace('&view=table','') | replace('?view=table','?') | replace('view=table','') }}&view=map">
+        <i class="bi bi-map me-1"></i>Map
+      </a>
+    </div>
+    <a href="/" class="btn btn-outline-secondary btn-sm">New search</a>
+  </div>
+</div>
+
+{% if not results %}
+<div class="alert alert-warning">
+  <i class="bi bi-exclamation-triangle me-2"></i>
+  No buildings matched. Try broadening your search or removing filters.
+</div>
+
+{% elif view == 'map' %}
+<!-- ── MAP VIEW ── -->
+<div id="resultsMap" style="height:580px; border-radius:12px; border:1px solid #dee2e6"></div>
+<div class="mt-2 d-flex flex-wrap gap-3 small">
+  <span><span style="background:#198754;border-radius:50%;display:inline-block;width:12px;height:12px"></span> Low</span>
+  <span><span style="background:#ffc107;border-radius:50%;display:inline-block;width:12px;height:12px"></span> Moderate</span>
+  <span><span style="background:#fd7e14;border-radius:50%;display:inline-block;width:12px;height:12px"></span> High</span>
+  <span><span style="background:#dc3545;border-radius:50%;display:inline-block;width:12px;height:12px"></span> Critical</span>
+  <span><span style="background:#adb5bd;border-radius:50%;display:inline-block;width:12px;height:12px"></span> Unscored</span>
+  <span class="text-muted">Color by: Risk score</span>
+</div>
+
+{% else %}
+<!-- ── TABLE VIEW ── -->
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0" id="resultsTable">
+      <thead>
+        <tr>
+          <th>Address</th>
+          <th>Zip</th>
+          <th>BIN</th>
+          <th>Year</th>
+          <th>Class</th>
+          <th class="text-center">Risk</th>
+          <th class="text-end">GHG (mt)</th>
+          <th class="text-center">Viol.</th>
+          <th class="text-center">Asb.</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in results %}
+        <tr class="{% if r.asbestos_count %}table-danger{% elif r.risk_label == 'Critical' %}table-warning{% endif %}">
+          <td>
+            <a class="building-link" href="/building/{{ r.bin }}">
+              {{ r.full_address or "(no address)" }}
+            </a>
+          </td>
+          <td>{{ r.zip_code or "—" }}</td>
+          <td><code class="small">{{ r.bin }}</code></td>
+          <td>{{ r.year_built or "—" }}</td>
+          <td>{{ r.building_class or "—" }}</td>
+          <td class="text-center">
+            {% if r.risk_label %}
+            <span class="badge
+              {% if r.risk_label == 'Low' %}bg-success
+              {% elif r.risk_label == 'Moderate' %}bg-warning text-dark
+              {% elif r.risk_label == 'High' %}bg-orange
+              {% else %}bg-danger{% endif %}"
+              style="{% if r.risk_label == 'High' %}background:#fd7e14{% endif %}">
+              {{ r.risk_label }}
+            </span>
+            {% else %}—{% endif %}
+          </td>
+          <td class="text-end small">
+            {% if r.estimated_ghg_metric_tons %}
+              {{ "{:,.0f}".format(r.estimated_ghg_metric_tons|float) }}
+              {% if r.eui_source != 'measured' %}<span class="text-muted" title="Estimated">*</span>{% endif %}
+            {% elif r.latest_ghg %}
+              {{ "{:,.0f}".format(r.latest_ghg|float) }}
+            {% else %}—{% endif %}
+          </td>
+          <td class="text-center">
+            {% if r.violation_count %}
+              <span class="badge bg-warning text-dark">{{ r.violation_count }}</span>
+            {% else %}0{% endif %}
+          </td>
+          <td class="text-center">
+            {% if r.asbestos_count %}
+              <span class="badge bg-danger">{{ r.asbestos_count }}</span>
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<p class="text-muted small mt-1">* GHG marked with * is a modelled estimate based on class peers, not measured LL84/97 data.</p>
+{% if results|length >= 500 %}
+<p class="text-muted small">Showing first 500 results. Narrow your search for more specific results.</p>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if view == 'map' %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script>
+const RISK_COLORS = {
+  Low:'#198754', Moderate:'#ffc107', High:'#fd7e14',
+  Critical:'#dc3545', Unscored:'#adb5bd',
+};
+// Inline features from server — avoids an extra round-trip for small result sets
+const FEATURES = {{ results | tojson }};
+
+document.addEventListener('DOMContentLoaded', () => {
+  const map = L.map('resultsMap');
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap contributors',
+  }).addTo(map);
+
+  const cluster = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 40 });
+  const bounds = [];
+
+  FEATURES.forEach(r => {
+    if (!r.latitude || !r.longitude) return;
+    const color = RISK_COLORS[r.risk_label] || RISK_COLORS.Unscored;
+    const ghg = r.estimated_ghg_metric_tons || r.latest_ghg;
+    const marker = L.circleMarker([r.latitude, r.longitude], {
+      radius: 7, color, fillColor: color, fillOpacity: 0.85, weight: 1,
+    });
+    marker.bindPopup(`
+      <strong><a href="/building/${r.bin}" target="_blank">${r.full_address || r.bin}</a></strong><br>
+      BIN <code>${r.bin}</code> &nbsp; Zip ${r.zip_code || '—'}<br>
+      Class: ${r.building_class || '—'} &nbsp; Year: ${r.year_built || '—'}<br>
+      Risk: <strong style="color:${color}">${r.risk_label || 'Unscored'}</strong><br>
+      GHG: ${ghg ? parseFloat(ghg).toLocaleString() + ' mt' : '—'}<br>
+      Violations: ${r.violation_count} &nbsp; Asbestos: ${r.asbestos_count}
+      <br><a class="btn btn-sm btn-outline-success mt-1" href="/building/${r.bin}">Full detail →</a>
+    `, { maxWidth: 260 });
+    cluster.addLayer(marker);
+    bounds.push([r.latitude, r.longitude]);
+  });
+
+  map.addLayer(cluster);
+  if (bounds.length) {
+    map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
+  } else {
+    map.setView([40.728, -73.794], 12);
+  }
+});
+</script>
+{% else %}
+<script>
+// Client-side table filter
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.createElement('input');
+  input.className = 'form-control form-control-sm mb-2';
+  input.placeholder = 'Filter results…';
+  input.style.maxWidth = '300px';
+  const table = document.getElementById('resultsTable');
+  if (table) {
+    table.parentElement.parentElement.insertBefore(input, table.parentElement);
+    input.addEventListener('input', () => {
+      const val = input.value.toLowerCase();
+      table.querySelectorAll('tbody tr').forEach(tr => {
+        tr.style.display = tr.textContent.toLowerCase().includes(val) ? '' : 'none';
+      });
+    });
+  }
+});
+</script>
+{% endif %}
+{% endblock %}

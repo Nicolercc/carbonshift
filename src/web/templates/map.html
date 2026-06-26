@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+{% block title %}Map — CarbonShift{% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-3">
+  <!-- Filter sidebar -->
+  <div class="col-lg-3">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-funnel me-2"></i>Filters</div>
+      <div class="card-body">
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Address / BIN / Zip</label>
+          <input id="fSearch" class="form-control form-control-sm" placeholder="e.g. Jamaica, 11101"
+                 value="{{ q }}">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Zip Code</label>
+          <input id="fZip" class="form-control form-control-sm" placeholder="11101"
+                 value="{{ filters.zip_code }}">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Building Class</label>
+          <input id="fClass" class="form-control form-control-sm" placeholder="e.g. D, R, A"
+                 value="{{ filters.building_class }}">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Year Built</label>
+          <div class="d-flex gap-1">
+            <input id="fYearMin" class="form-control form-control-sm" placeholder="From"
+                   value="{{ filters.year_min or '' }}">
+            <input id="fYearMax" class="form-control form-control-sm" placeholder="To"
+                   value="{{ filters.year_max or '' }}">
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Risk Level</label>
+          <select id="fRisk" class="form-select form-select-sm">
+            <option value="">All</option>
+            <option value="Low" {% if filters.risk_label=='Low' %}selected{% endif %}>Low</option>
+            <option value="Moderate" {% if filters.risk_label=='Moderate' %}selected{% endif %}>Moderate</option>
+            <option value="High" {% if filters.risk_label=='High' %}selected{% endif %}>High</option>
+            <option value="Critical" {% if filters.risk_label=='Critical' %}selected{% endif %}>Critical</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="fAsbestos"
+                   {% if filters.has_asbestos %}checked{% endif %}>
+            <label class="form-check-label small" for="fAsbestos">Asbestos flags only</label>
+          </div>
+        </div>
+        <button class="btn btn-success btn-sm w-100" onclick="applyFilters()">
+          <i class="bi bi-search me-1"></i>Apply
+        </button>
+        <button class="btn btn-outline-secondary btn-sm w-100 mt-1" onclick="clearFilters()">
+          Clear
+        </button>
+        <hr class="my-2">
+        <label class="form-label small fw-semibold">Color markers by</label>
+        <div class="btn-group btn-group-sm w-100" id="colorByGroup">
+          <button class="btn btn-outline-secondary active" onclick="setColorBy('risk',this)">Risk</button>
+          <button class="btn btn-outline-secondary" onclick="setColorBy('ghg',this)">GHG</button>
+          <button class="btn btn-outline-secondary" onclick="setColorBy('age',this)">Age</button>
+        </div>
+        <div class="mt-2 small text-muted" id="mapCount">Loading…</div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="card mt-2">
+      <div class="card-header small">Legend</div>
+      <div class="card-body py-2">
+        <div id="legendRisk">
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="dot" style="background:#198754"></span><span class="small">Low risk</span>
+          </div>
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="dot" style="background:#ffc107"></span><span class="small">Moderate risk</span>
+          </div>
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="dot" style="background:#fd7e14"></span><span class="small">High risk</span>
+          </div>
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="dot" style="background:#dc3545"></span><span class="small">Critical risk</span>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="dot" style="background:#adb5bd"></span><span class="small">Unscored</span>
+          </div>
+        </div>
+        <div id="legendGhg" style="display:none">
+          <div class="d-flex align-items-center gap-2 mb-1"><span class="dot" style="background:#198754"></span><span class="small">&lt; 200 mt</span></div>
+          <div class="d-flex align-items-center gap-2 mb-1"><span class="dot" style="background:#ffc107"></span><span class="small">200–1,000 mt</span></div>
+          <div class="d-flex align-items-center gap-2 mb-1"><span class="dot" style="background:#fd7e14"></span><span class="small">1,000–5,000 mt</span></div>
+          <div class="d-flex align-items-center gap-2 mb-1"><span class="dot" style="background:#dc3545"></span><span class="small">&gt; 5,000 mt</span></div>
+          <div class="d-flex align-items-center gap-2"><span class="dot" style="background:#adb5bd"></span><span class="small">No data</span></div>
+        </div>
+        <div id="legendAge" style="display:none">
+          <div class="d-flex align-items-center gap-2 mb-1"><span class="dot" style="background:#dc3545"></span><span class="small">Before 1940</span></div>
+          <div class="d-flex align-items-center gap-2 mb-1"><span class="dot" style="background:#fd7e14"></span><span class="small">1940–1977</span></div>
+          <div class="d-flex align-items-center gap-2 mb-1"><span class="dot" style="background:#ffc107"></span><span class="small">1978–1999</span></div>
+          <div class="d-flex align-items-center gap-2 mb-1"><span class="dot" style="background:#198754"></span><span class="small">2000+</span></div>
+          <div class="d-flex align-items-center gap-2"><span class="dot" style="background:#adb5bd"></span><span class="small">Unknown</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div class="col-lg-9">
+    <div id="mainMap" style="height:680px; border-radius:12px; border:1px solid #dee2e6"></div>
+  </div>
+</div>
+
+<style>
+.dot { width:14px; height:14px; border-radius:50%; display:inline-block; flex-shrink:0; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+<script>
+const RISK_COLORS = {
+  Low:'#198754', Moderate:'#ffc107', High:'#fd7e14',
+  Critical:'#dc3545', Unscored:'#adb5bd',
+};
+
+let map, clusterGroup, allFeatures = [];
+let currentColorBy = 'risk';
+
+function markerColor(p, colorBy) {
+  if (colorBy === 'risk') return RISK_COLORS[p.risk_label] || RISK_COLORS.Unscored;
+  if (colorBy === 'ghg') {
+    if (!p.ghg) return RISK_COLORS.Unscored;
+    if (p.ghg > 5000) return '#dc3545';
+    if (p.ghg > 1000) return '#fd7e14';
+    if (p.ghg > 200)  return '#ffc107';
+    return '#198754';
+  }
+  if (colorBy === 'age') {
+    if (!p.year_built) return RISK_COLORS.Unscored;
+    if (p.year_built < 1940) return '#dc3545';
+    if (p.year_built < 1978) return '#fd7e14';
+    if (p.year_built < 2000) return '#ffc107';
+    return '#198754';
+  }
+  return RISK_COLORS.Unscored;
+}
+
+function buildLayers(features) {
+  clusterGroup.clearLayers();
+  features.forEach(feat => {
+    const [lng, lat] = feat.geometry.coordinates;
+    const p = feat.properties;
+    const color = markerColor(p, currentColorBy);
+    const marker = L.circleMarker([lat, lng], {
+      radius: 6, color, fillColor: color, fillOpacity: 0.85, weight: 1,
+    });
+    marker.bindPopup(`
+      <strong><a href="/building/${p.bin}" target="_blank">${p.address || p.bin}</a></strong><br>
+      BIN <code>${p.bin}</code> &nbsp; Zip <code>${p.zip || '—'}</code><br>
+      Class: ${p.building_class || '—'} &nbsp; Year: ${p.year_built || '—'}<br>
+      Risk: <strong style="color:${RISK_COLORS[p.risk_label] || '#555'}">${p.risk_label}</strong>
+        (score ${p.risk_score ?? '—'})<br>
+      GHG: ${p.ghg ? p.ghg.toLocaleString() + ' mt CO₂e' : '—'}
+        ${p.ghg_source === 'measured' ? '<span class="badge bg-success">measured</span>' : p.ghg ? '<span class="badge bg-secondary">est.</span>' : ''}<br>
+      Violations: ${p.violations} &nbsp; Asbestos: ${p.asbestos}
+      <br><a class="btn btn-sm btn-outline-success mt-1" href="/building/${p.bin}" target="_blank">Full detail →</a>
+    `, { maxWidth: 280 });
+    clusterGroup.addLayer(marker);
+  });
+  document.getElementById('mapCount').textContent =
+    `${features.length.toLocaleString()} buildings shown`;
+}
+
+function buildApiUrl() {
+  const params = new URLSearchParams();
+  const q    = document.getElementById('fSearch').value.trim();
+  const zip  = document.getElementById('fZip').value.trim();
+  const cls  = document.getElementById('fClass').value.trim();
+  const yMin = document.getElementById('fYearMin').value.trim();
+  const yMax = document.getElementById('fYearMax').value.trim();
+  const risk = document.getElementById('fRisk').value;
+  const asb  = document.getElementById('fAsbestos').checked;
+  if (q)    params.set('q', q);
+  if (zip)  params.set('zip', zip);
+  if (cls)  params.set('class', cls);
+  if (yMin) params.set('year_min', yMin);
+  if (yMax) params.set('year_max', yMax);
+  if (risk) params.set('risk', risk);
+  if (asb)  params.set('asbestos', '1');
+  params.set('limit', '8000');
+  return '/api/buildings.geojson?' + params.toString();
+}
+
+function applyFilters() {
+  document.getElementById('mapCount').textContent = 'Loading…';
+  clusterGroup.clearLayers();
+  fetch(buildApiUrl())
+    .then(r => r.json())
+    .then(gj => {
+      allFeatures = gj.features;
+      buildLayers(allFeatures);
+    })
+    .catch(e => {
+      document.getElementById('mapCount').textContent = 'Error: ' + e;
+    });
+}
+
+function clearFilters() {
+  ['fSearch','fZip','fClass','fYearMin','fYearMax'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('fRisk').value = '';
+  document.getElementById('fAsbestos').checked = false;
+  applyFilters();
+}
+
+function setColorBy(by, btn) {
+  document.querySelectorAll('#colorByGroup .btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentColorBy = by;
+  ['legendRisk','legendGhg','legendAge'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+  document.getElementById(
+    by === 'risk' ? 'legendRisk' : by === 'ghg' ? 'legendGhg' : 'legendAge'
+  ).style.display = 'block';
+  buildLayers(allFeatures);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  map = L.map('mainMap').setView([40.728, -73.794], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap contributors',
+  }).addTo(map);
+
+  clusterGroup = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 50 });
+  map.addLayer(clusterGroup);
+  applyFilters();
+
+  // Also allow Enter key in filter inputs to apply
+  document.querySelectorAll('#fSearch,#fZip,#fClass,#fYearMin,#fYearMax').forEach(el => {
+    el.addEventListener('keydown', e => { if (e.key === 'Enter') applyFilters(); });
+  });
+});
+</script>
+{% endblock %}

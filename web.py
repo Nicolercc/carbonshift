@@ -3,9 +3,14 @@
 CarbonShift web interface.
 
 Usage:
-  python web.py              # runs on http://localhost:5000
+  python web.py              # runs on http://localhost:5050
   python web.py --port 8080
   python web.py --host 0.0.0.0 --port 8080   # LAN-accessible
+
+Note: default port is 5050. Port 5000 is taken by macOS AirPlay Receiver on
+Monterey and later (binds to *:5000 including IPv6, so localhost:5000 hits
+AirPlay, not Flask). Port 5050 avoids that conflict and is reserved for this
+project to avoid clashing with other local dev servers.
 """
 
 import argparse
@@ -22,7 +27,7 @@ init_db()
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="CarbonShift web server")
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind (default: 127.0.0.1)")
-    parser.add_argument("--port", type=int, default=5000, help="Port (default: 5000)")
+    parser.add_argument("--port", type=int, default=5050, help="Port (default: 5050)")
     parser.add_argument("--debug", action="store_true", help="Enable Flask debug mode")
     args = parser.parse_args()
 

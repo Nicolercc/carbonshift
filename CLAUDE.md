@@ -1,5 +1,5 @@
 # CarbonShift — Data Ingestion Context File
-**Last updated:** June 26, 2026
+**Last updated:** June 26, 2026 (rev 2)
 **Purpose:** Project context file for CarbonShift. Originally written to hand off the data ingestion work; updated to reflect the current completed state of the pipeline, scoring, and web UI.
 
 ---
@@ -238,6 +238,8 @@ CREATE TABLE building_record_sources (
 - **LL84/97 rows can represent multiple buildings.** Don't assume 1 row = 1 BBL = 1 BIN.
 - **Socrata throttles unauthenticated requests fast** across 8 dataset pulls. Confirm `SOCRATA_APP_TOKEN` is set before starting ingestion, not after hitting a wall.
 - **Borough field names are not consistent across datasets.** Use the BBL/BIN numeric prefix, not a free-text borough field, per Section D.
+- **Default web port is 5050.** `python web.py` binds to `http://localhost:5050`. Port 5000 conflicts with macOS AirPlay Receiver (Monterey+), which binds to `*:5000` including IPv6 — `localhost` resolves to `::1` first so `localhost:5000` hits AirPlay, not Flask. Port 5050 is reserved for this project.
+- **`building_violations` must be indexed for the map to load.** The `/api/buildings.geojson` endpoint uses two correlated `COUNT(*)` subqueries against `building_violations` (1.6M rows). Without `idx_bv_building_id`, each query is a full table scan — the endpoint hangs indefinitely and the browser reports "TypeError: Failed to fetch". The index is created by `init_db()` / `schema.sql`; running `python web.py` on startup applies it automatically to existing databases.
 - **Socrata SoQL does not support `starts_with()` on all datasets.** Building Footprints, DOB Safety, DOB ECB, and ACP-7 return a 400 error for `starts_with(bin, '4')`. Use the equivalent range filter: `bin >= '4000000' AND bin < '5000000'`.
 - **Foreign key constraint: run PLUTO before DOB/ACP-7/LL84.** `building_violations` and `asbestos_projects` have FK constraints on `buildings(bin)`. DOB, ACP-7, and LL84/97 fetchers resolve their BIN allowlists from the `buildings` table (populated by PLUTO) — not from `building_crosswalk` — to avoid FK failures. Buildings in the crosswalk but not in PLUTO (parking structures, parks, undeveloped lots) will be silently skipped. HPD uses crosswalk BBLs directly, which is safe because HPD-violated buildings are universally covered by PLUTO.
 - **There is no standalone "asbestos violations" dataset.** Asbestos-adjacent enforcement only surfaces via keyword-matching DOB/ECB violation text (Step 5 above) — don't go looking for a dedicated dataset that doesn't exist.

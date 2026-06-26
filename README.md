@@ -123,7 +123,7 @@ python query.py search "Jamaica"
 
 # 5. Launch the web interface
 python web.py
-# → open http://localhost:5000
+# → open http://localhost:5050
 ```
 
 ---
@@ -323,7 +323,7 @@ A browser-based interface for search, building detail, interactive charts, SQL q
 ### Starting the server
 
 ```bash
-# Default: http://localhost:5000
+# Default: http://localhost:5050
 python web.py
 
 # Custom port
@@ -335,6 +335,8 @@ python web.py --host 0.0.0.0 --port 8080
 # Development mode — auto-reloads when code changes
 python web.py --debug
 ```
+
+**Why port 5050?** macOS AirPlay Receiver (Monterey and later) binds to `*:5000` on all interfaces including IPv6. Because macOS resolves `localhost` to `::1` first, `http://localhost:5000` hits AirPlay (HTTP 403) rather than Flask. Port 5050 is unoccupied and reserved for this project to avoid collisions with other local dev servers.
 
 ### Dark Mode
 
@@ -574,6 +576,18 @@ building_record_sources Provenance trail: dataset ID, URL, timestamp per record
 
 Full DDL is in `src/db/schema.sql`.
 
+### Indexes
+
+These indexes are created automatically by `init_db()` / `schema.sql`. If you have an existing database from before June 26 2026, running `python web.py` (which calls `init_db()`) will add any missing ones on startup.
+
+| Index | Table | Columns | Purpose |
+|---|---|---|---|
+| `idx_bv_building_id` | `building_violations` | `building_id` | Correlated violation-count subqueries in the map API |
+| `idx_bv_building_asbestos` | `building_violations` | `building_id, is_asbestos_related` | Asbestos-flagged count subquery in the map API |
+| `idx_bp_building_id` | `building_profiles` | `building_id` | JOIN in search and map queries |
+| `idx_ap_building_id` | `asbestos_projects` | `building_id` | JOIN in building detail queries |
+| `idx_ee_building_id` | `energy_emissions` | `building_id` | JOIN in building detail and chart queries |
+
 ### Useful queries to get started
 
 ```sql
@@ -617,6 +631,10 @@ ORDER BY projects DESC;
 **Borough field names differ across datasets.** The pipeline filters using the numeric BBL/BIN prefix (`4` = Queens), not the free-text borough field, which appears as `"QUEENS"`, `"QN"`, `"Q"`, or integer `4` depending on the dataset.
 
 **Socrata SoQL does not support `starts_with()` on all datasets.** Building Footprints, DOB Safety, DOB ECB, and ACP-7 reject `starts_with(bin, '4')` with a 400 error. All four use the equivalent range filter instead: `bin >= '4000000' AND bin < '5000000'`.
+
+**Map tab "Failed to fetch" — two causes, both fixed.** The `/charts` Map tab and `/map` standalone page both call `GET /api/buildings.geojson?limit=8000`. Two bugs caused `TypeError: Failed to fetch` in the browser:
+1. *Missing indexes on `building_violations`* (1.6M rows, no index on `building_id`). The two correlated `COUNT(*)` subqueries in `buildings_geojson()` ran as full table scans for every row returned — at 8,000 rows that was ~16,000 sequential scans, hanging the connection until the browser timed out. Fixed by adding `idx_bv_building_id` and `idx_bv_building_asbestos` in `src/db/schema.sql` and `src/db/init_db._migrate()`. Query time: from unbounded → **~0.9 s**.
+2. *AirPlay port conflict on macOS*. macOS AirPlay Receiver (ControlCenter) binds to `*:5000` including IPv6. `localhost` resolves to `::1` first, so `fetch('/api/buildings.geojson')` from a page served on `localhost:5000` hit AirPlay (HTTP 403) instead of Flask. Fixed by changing the default port to **5050**.
 
 **LL84 rows can represent multiple buildings.** One disclosure row may list multiple BBLs and BINs in comma-delimited fields. `fetch_ll84_97.py` expands these into one `energy_emissions` row per resolved BIN — all sharing the same `source_property_id`.
 

@@ -54,6 +54,24 @@ def _migrate(conn: sqlite3.Connection) -> None:
         except Exception:
             pass
 
+    # Ensure performance indexes exist (safe to run on existing databases)
+    existing_idx = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='index'")}
+    needed = [
+        ("idx_bv_building_id",
+         "CREATE INDEX idx_bv_building_id ON building_violations(building_id)"),
+        ("idx_bv_building_asbestos",
+         "CREATE INDEX idx_bv_building_asbestos ON building_violations(building_id, is_asbestos_related)"),
+        ("idx_bp_building_id",
+         "CREATE INDEX idx_bp_building_id ON building_profiles(building_id)"),
+        ("idx_ap_building_id",
+         "CREATE INDEX idx_ap_building_id ON asbestos_projects(building_id)"),
+        ("idx_ee_building_id",
+         "CREATE INDEX idx_ee_building_id ON energy_emissions(building_id)"),
+    ]
+    for name, sql in needed:
+        if name not in existing_idx:
+            conn.execute(sql)
+
 
 if __name__ == "__main__":
     init_db()

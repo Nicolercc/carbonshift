@@ -109,3 +109,17 @@ CREATE TABLE IF NOT EXISTS building_record_sources (
   last_checked_at TEXT,
   FOREIGN KEY (building_id) REFERENCES buildings(bin)
 );
+
+-- Performance indexes for building_id lookups across all child tables.
+-- building_violations is 1.6M rows — unindexed correlated COUNT(*) subqueries
+-- against it will full-scan for every row returned, making the map endpoint hang.
+CREATE INDEX IF NOT EXISTS idx_bv_building_id
+  ON building_violations(building_id);
+CREATE INDEX IF NOT EXISTS idx_bv_building_asbestos
+  ON building_violations(building_id, is_asbestos_related);
+CREATE INDEX IF NOT EXISTS idx_bp_building_id
+  ON building_profiles(building_id);
+CREATE INDEX IF NOT EXISTS idx_ap_building_id
+  ON asbestos_projects(building_id);
+CREATE INDEX IF NOT EXISTS idx_ee_building_id
+  ON energy_emissions(building_id);

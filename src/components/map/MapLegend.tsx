@@ -5,7 +5,7 @@ import { RISK_COLORS, RISK_LEGEND_ORDER, RISK_LABELS } from "./mapConfig";
 export function MapLegend() {
   return (
     <div style={styles.legend}>
-      <p style={styles.title}>Retrofit risk</p>
+      <p style={styles.title}>Building signal</p>
       <ul style={styles.list}>
         {RISK_LEGEND_ORDER.map((key: BackendRiskLabel) => (
           <li key={key} style={styles.item}>
@@ -17,7 +17,7 @@ export function MapLegend() {
         ))}
       </ul>
       <p style={styles.note}>
-        Buildings colored by estimated carbon / retrofit risk.
+        Colors combine estimated carbon, violations, age, and confidence.
       </p>
     </div>
   );

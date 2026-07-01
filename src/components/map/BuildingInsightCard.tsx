@@ -5,9 +5,34 @@ import { RISK_COLORS } from "./mapConfig";
 import {
   formatBuildingArea,
   formatGhg,
+  ghgConfidenceDetail,
   ghgConfidenceLabel,
+  ghgConfidenceTier,
   riskHeadline,
 } from "./buildingInsights";
+
+const TIER_STYLES: Record<string, CSSProperties> = {
+  high: {
+    background: "rgba(25, 135, 84, 0.15)",
+    borderColor: "rgba(25, 135, 84, 0.35)",
+    color: "#8FD9B0",
+  },
+  medium: {
+    background: "rgba(255, 193, 7, 0.12)",
+    borderColor: "rgba(255, 193, 7, 0.3)",
+    color: "#E8D48A",
+  },
+  low: {
+    background: "rgba(173, 181, 189, 0.12)",
+    borderColor: "rgba(173, 181, 189, 0.28)",
+    color: "#B8C2CC",
+  },
+  none: {
+    background: "rgba(107, 117, 128, 0.12)",
+    borderColor: "rgba(107, 117, 128, 0.25)",
+    color: "#9AA5B1",
+  },
+};
 
 interface BuildingInsightCardProps {
   building: BuildingProperties;
@@ -19,6 +44,8 @@ export function BuildingInsightCard({
   onClose,
 }: BuildingInsightCardProps) {
   const accent = RISK_COLORS[building.risk_label as BackendRiskLabel];
+  const sourceTier = ghgConfidenceTier(building.ghg_source);
+  const sourceStyle = TIER_STYLES[sourceTier];
 
   return (
     <div style={styles.card} role="dialog" aria-label="Building insight">
@@ -33,7 +60,7 @@ export function BuildingInsightCard({
 
       <div style={{ ...styles.accentBar, backgroundColor: accent }} />
 
-      <p style={styles.eyebrow}>Building intelligence</p>
+      <p style={styles.eyebrow}>Signal + source</p>
       <h2 style={styles.headline}>{riskHeadline(building.risk_label)}</h2>
 
       <p style={styles.address}>{building.address}</p>
@@ -41,6 +68,11 @@ export function BuildingInsightCard({
         {building.zip ? `ZIP ${building.zip}` : "Queens, NYC"}
         {building.building_class ? ` · Class ${building.building_class}` : ""}
       </p>
+
+      <div style={{ ...styles.sourceCallout, ...sourceStyle }}>
+        <span style={styles.sourceLabel}>{ghgConfidenceLabel(building.ghg_source)}</span>
+        <span style={styles.sourceDetail}>{ghgConfidenceDetail(building.ghg_source)}</span>
+      </div>
 
       <div style={styles.metricsGrid}>
         <Metric
@@ -60,10 +92,6 @@ export function BuildingInsightCard({
           label="Violations"
           value={String(building.violations)}
         />
-        <Metric
-          label="Emissions confidence"
-          value={ghgConfidenceLabel(building.ghg_source)}
-        />
       </div>
 
       {building.asbestos > 0 && (
@@ -79,11 +107,16 @@ export function BuildingInsightCard({
       </section>
 
       <section style={styles.section}>
-        <h3 style={styles.sectionTitle}>Suggested action</h3>
+        <h3 style={styles.sectionTitle}>Suggested next step</h3>
         <p style={styles.bodyText}>{building.suggested_action}</p>
       </section>
 
-      <p style={styles.bin}>BIN {building.bin}</p>
+      <div style={styles.footer}>
+        <p style={styles.bin}>BIN {building.bin}</p>
+        <a href={`/building/${building.bin}`} style={styles.detailLink}>
+          Full building detail →
+        </a>
+      </div>
     </div>
   );
 }
@@ -100,11 +133,11 @@ function Metric({ label, value }: { label: string; value: string }) {
 const styles: Record<string, CSSProperties> = {
   card: {
     position: "absolute",
-    top: 72,
-    right: 24,
+    top: 12,
+    right: 12,
     width: 360,
-    maxWidth: "calc(100vw - 48px)",
-    maxHeight: "calc(100vh - 96px)",
+    maxWidth: "calc(100% - 24px)",
+    maxHeight: "calc(100% - 24px)",
     overflowY: "auto",
     background: "rgba(14, 17, 22, 0.94)",
     backdropFilter: "blur(16px)",
@@ -158,9 +191,28 @@ const styles: Record<string, CSSProperties> = {
     color: "#DDE3EA",
   },
   meta: {
-    margin: "0 0 16px",
+    margin: "0 0 12px",
     fontSize: 13,
     color: "#8B949E",
+  },
+  sourceCallout: {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: 4,
+    marginBottom: 14,
+    padding: "10px 12px",
+    borderRadius: 10,
+    border: "1px solid",
+  },
+  sourceLabel: {
+    fontSize: 12,
+    fontWeight: 600,
+    letterSpacing: "0.02em",
+  },
+  sourceDetail: {
+    fontSize: 11,
+    lineHeight: 1.45,
+    opacity: 0.92,
   },
   metricsGrid: {
     display: "grid",
@@ -211,10 +263,24 @@ const styles: Record<string, CSSProperties> = {
     lineHeight: 1.55,
     color: "#B8C2CC",
   },
+  footer: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginTop: 8,
+    flexWrap: "wrap" as const,
+  },
   bin: {
-    margin: "8px 0 0",
+    margin: 0,
     fontSize: 11,
     color: "#5C6670",
     fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+  },
+  detailLink: {
+    fontSize: 13,
+    fontWeight: 500,
+    color: "#6ECFC4",
+    textDecoration: "none",
   },
 };

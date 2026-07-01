@@ -64,3 +64,15 @@ export interface BuildingsLoadResult {
   source: MapDataSource;
   count: number;
 }
+
+/** Initial filter state injected by Flask `map.html`. */
+export interface MapInitConfig {
+  q?: string;
+  zip?: string;
+  class?: string;
+  year_min?: number | null;
+  year_max?: number | null;
+  risk?: string;
+  asbestos?: boolean;
+  limit?: number;
+}

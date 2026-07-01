@@ -16,9 +16,6 @@ export const MAP_STYLE_URL =
 export const MAP_STYLE_FALLBACK_URL =
   "https://demotiles.maplibre.org/style.json";
 
-/** Queens building data from Flask — proxied to :5050 in Vite dev. */
-export const BUILDINGS_API_URL = "/api/buildings.geojson?limit=1000";
-
 export const BUILDING_SOURCE_ID = "carbon-buildings";
 export const BUILDING_EXTRUSION_LAYER_ID = "building-extrusion";
 export const BUILDING_OUTLINE_LAYER_ID = "building-outline";

@@ -18,24 +18,47 @@ export function normalizeRiskLabel(label: string | null | undefined): BackendRis
 export function riskHeadline(risk: BackendRiskLabel): string {
   switch (risk) {
     case "Critical":
-      return "Critical retrofit priority";
+      return "Critical building signal";
     case "High":
-      return "High retrofit priority";
+      return "High building signal";
     case "Moderate":
-      return "Moderate retrofit priority";
+      return "Moderate building signal";
     case "Low":
-      return "Lower retrofit priority";
+      return "Lower building signal";
     default:
       return "Insufficient scoring data";
   }
 }
 
 export function ghgConfidenceLabel(source: string): string {
-  if (source === "measured") return "High — measured LL84/97";
-  if (source === "class_median") return "Medium — class median model";
-  if (source === "borough_median") return "Low — borough median model";
+  if (source === "measured") return "Measured LL84/97";
+  if (source === "class_median") return "Similar buildings (class median)";
+  if (source === "borough_median") return "Borough fallback";
   if (!source) return "Not available";
   return "Modeled estimate";
+}
+
+export function ghgConfidenceDetail(source: string): string {
+  if (source === "measured") {
+    return "Actual LL84/97 disclosure on file — treat as measured emissions.";
+  }
+  if (source === "class_median") {
+    return "Modeled from peer buildings with the same PLUTO class — medium confidence.";
+  }
+  if (source === "borough_median") {
+    return "Modeled from a Queens-wide median — lower confidence than class peers.";
+  }
+  if (!source) {
+    return "No emissions source on record for this building.";
+  }
+  return "Modeled estimate — confirm source before capital planning.";
+}
+
+export function ghgConfidenceTier(source: string): "high" | "medium" | "low" | "none" {
+  if (source === "measured") return "high";
+  if (source === "class_median") return "medium";
+  if (source === "borough_median") return "low";
+  return "none";
 }
 
 export function derivePrimaryDriver(props: {
@@ -100,27 +123,27 @@ export function deriveSuggestedAction(props: {
 }): string {
   if (props.risk_label === "Critical" || props.risk_label === "High") {
     if (props.asbestos > 0) {
-      return "Commission asbestos survey and align abatement with envelope/HVAC retrofit planning.";
+      return "Review asbestos records before planning capital or energy work.";
     }
-    return "Schedule comprehensive energy audit and prioritize electrification within 18 months.";
+    return "Start with a building-level energy review and compare against peer buildings.";
   }
 
   if (props.risk_label === "Moderate") {
     if (props.violations > 0) {
-      return "Resolve outstanding violations while scoping HVAC and envelope improvements.";
+      return "Check violation history before prioritizing efficiency upgrades.";
     }
-    return "Target operational efficiency upgrades and heat-pump readiness assessment.";
+    return "Look for operational efficiency signals before deeper retrofit planning.";
   }
 
   if (props.risk_label === "Low") {
-    return "Maintain performance; plan heat-pump conversion at end of equipment life.";
+    return "Monitor performance and revisit when newer disclosure data appears.";
   }
 
   if (!props.ghg_source) {
-    return "Request LL84 filing status and schedule baseline energy audit.";
+    return "Confirm whether this building has an LL84/97 filing before relying on the estimate.";
   }
 
-  return "Gather additional disclosure data before prioritizing capital upgrades.";
+  return "Gather additional disclosure data before making a capital-planning decision.";
 }
 
 export function formatGhg(ghg: number | null): string {

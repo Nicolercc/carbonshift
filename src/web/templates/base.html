@@ -63,7 +63,9 @@
     .violation-row-asbestos { background: var(--cs-asb-row) !important; }
     a.building-link { text-decoration: none; color: var(--cs-link); font-weight: 500; }
     a.building-link:hover { text-decoration: underline; }
-    .search-bar { max-width: 640px; }
+    .search-bar { max-width: 480px; }
+    .nav-link.nav-primary { color: #6ecfc4 !important; font-weight: 600; }
+    .nav-link.nav-primary:hover { color: #9ee4db !important; }
     footer { margin-top: 3rem; padding: 1.5rem 0; border-top: 1px solid var(--cs-footer-border);
              color: #6c757d; font-size: .85rem; }
 
@@ -89,13 +91,34 @@
     </button>
     <div class="collapse navbar-collapse" id="nav">
       <ul class="navbar-nav me-auto">
-        <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
-        <li class="nav-item"><a class="nav-link" href="/charts">Charts</a></li>
-        <li class="nav-item"><a class="nav-link" href="/map">Map</a></li>
-        <li class="nav-item"><a class="nav-link" href="/query">SQL Query</a></li>
+        <li class="nav-item">
+          <a class="nav-link {% if nav_path == '/' %}active{% endif %}" href="/">Overview</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link nav-primary {% if nav_path == '/map' %}active{% endif %}" href="/map">
+            <i class="bi bi-map me-1"></i>Explore Map
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if nav_insights %}active{% endif %}" href="/insights">Insights</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if nav_path == '/methodology' %}active{% endif %}" href="/methodology">
+            Data Confidence
+          </a>
+        </li>
         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Export</a>
+          <a class="nav-link dropdown-toggle {% if nav_data_tools %}active{% endif %}"
+             href="#" data-bs-toggle="dropdown">Data Tools</a>
           <ul class="dropdown-menu">
+            <li><h6 class="dropdown-header">Advanced</h6></li>
+            <li>
+              <a class="dropdown-item" href="/query">
+                <i class="bi bi-terminal me-1"></i>SQL Explorer
+              </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li><h6 class="dropdown-header">Download CSV</h6></li>
             <li><a class="dropdown-item" href="/export/buildings.csv"><i class="bi bi-download me-1"></i>Buildings</a></li>
             <li><a class="dropdown-item" href="/export/violations.csv"><i class="bi bi-download me-1"></i>Violations</a></li>
             <li><a class="dropdown-item" href="/export/energy.csv"><i class="bi bi-download me-1"></i>Energy &amp; Emissions</a></li>
@@ -104,11 +127,10 @@
         </li>
       </ul>
       <form class="d-flex search-bar" action="/search" method="get">
-        <input class="form-control me-2" name="q" placeholder="Address, BIN, BBL, or zip…"
+        <input class="form-control me-2" name="q" placeholder="Find a building…"
                value="{{ request.args.get('q','') }}">
-        <button class="btn btn-success" type="submit"><i class="bi bi-search"></i></button>
+        <button class="btn btn-success" type="submit" title="Search buildings"><i class="bi bi-search"></i></button>
       </form>
-      <!-- Dark / light mode toggle -->
       <button id="themeToggle" class="btn btn-link text-white ms-2 p-1 border-0"
               title="Toggle dark / light mode" onclick="toggleTheme()">
         <i id="themeIcon" class="bi bi-moon fs-5"></i>
@@ -132,7 +154,7 @@
 
 <footer>
   <div class="container text-center">
-    CarbonShift &mdash; Queens NYC Building Data &mdash; Sources: NYC Open Data
+    CarbonShift &mdash; Queens building carbon intelligence &mdash; NYC Open Data
   </div>
 </footer>
 

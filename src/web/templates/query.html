@@ -1,10 +1,15 @@
 {% extends "base.html" %}
-{% block title %}SQL Query — CarbonShift{% endblock %}
+{% block title %}SQL Explorer — CarbonShift{% endblock %}
 
 {% block content %}
 <div class="row">
   <div class="col-lg-9">
-    <h5 class="mb-3"><i class="bi bi-code-square me-2"></i>SQL Query</h5>
+    <h5 class="mb-1"><i class="bi bi-terminal me-2"></i>SQL Explorer</h5>
+    <p class="text-muted small mb-3">
+      Advanced data tool — run read-only SELECT queries against the CarbonShift database.
+      For everyday exploration, start with the <a href="/map">map</a> or
+      <a href="/search?q=">building search</a>.
+    </p>
 
     <div class="card mb-3">
       <div class="card-body">

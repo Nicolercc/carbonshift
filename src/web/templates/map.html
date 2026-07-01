@@ -1,40 +1,94 @@
 {% extends "base.html" %}
-{% block title %}Map — CarbonShift{% endblock %}
+{% block title %}Explore Map — CarbonShift{% endblock %}
 
 {% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <h5 class="mb-0"><i class="bi bi-map me-2"></i>Explore Map</h5>
+    <p class="text-muted small mb-0">Queens building carbon intelligence — click a building for emissions confidence and risk.</p>
+  </div>
+</div>
 <div class="row g-3 mb-3">
-  <!-- Filter sidebar -->
   <div class="col-lg-3">
-    <div class="card">
+    <!-- Emissions confidence — visible before exploring the map -->
+    <div class="card mb-2">
+      <div class="card-header py-2">
+        <i class="bi bi-shield-check me-2"></i>Emissions confidence
+      </div>
+      <div class="card-body py-2">
+        {% if confidence.total == 0 %}
+        <div class="alert alert-warning py-2 px-2 small mb-0">
+          <i class="bi bi-exclamation-triangle me-1"></i>
+          Scoring has not been run yet. Run <code>python score.py</code> to populate confidence labels.
+        </div>
+        {% else %}
+        <p class="small text-muted mb-2 mb-md-3" style="line-height:1.45">
+          CarbonShift labels confidence so modeled estimates are not treated like measured disclosures.
+        </p>
+        <ul class="list-unstyled small mb-2 confidence-list">
+          <li class="confidence-row">
+            <span class="confidence-dot" style="background:#198754"></span>
+            <div>
+              <strong class="confidence-count">{{ "{:,}".format(confidence.measured) }}</strong>
+              <span class="text-muted">Measured LL84/97</span>
+              <div class="text-muted" style="font-size:.78rem">Actual disclosure record on file.</div>
+            </div>
+          </li>
+          <li class="confidence-row">
+            <span class="confidence-dot" style="background:#ffc107"></span>
+            <div>
+              <strong class="confidence-count">{{ "{:,}".format(confidence.class_median) }}</strong>
+              <span class="text-muted">Similar buildings</span>
+              <div class="text-muted" style="font-size:.78rem">Modeled from peer building class.</div>
+            </div>
+          </li>
+          <li class="confidence-row mb-0">
+            <span class="confidence-dot" style="background:#adb5bd"></span>
+            <div>
+              <strong class="confidence-count">{{ "{:,}".format(confidence.borough_median) }}</strong>
+              <span class="text-muted">Borough fallback</span>
+              <div class="text-muted" style="font-size:.78rem">Lower-confidence Queens-wide estimate.</div>
+            </div>
+          </li>
+        </ul>
+        <p class="text-muted mb-0" style="font-size:.75rem">
+          {{ "{:,}".format(confidence.total) }} buildings scored ·
+          <a href="/methodology">How this works</a>
+        </p>
+        {% endif %}
+      </div>
+    </div>
+
+    <form method="get" action="/map" class="card">
       <div class="card-header"><i class="bi bi-funnel me-2"></i>Filters</div>
       <div class="card-body">
         <div class="mb-2">
-          <label class="form-label small fw-semibold">Address / BIN / Zip</label>
-          <input id="fSearch" class="form-control form-control-sm" placeholder="e.g. Jamaica, 11101"
+          <label class="form-label small fw-semibold" for="fSearch">Address / BIN / Zip</label>
+          <input id="fSearch" name="q" class="form-control form-control-sm" placeholder="e.g. Jamaica, 11101"
                  value="{{ q }}">
         </div>
         <div class="mb-2">
-          <label class="form-label small fw-semibold">Zip Code</label>
-          <input id="fZip" class="form-control form-control-sm" placeholder="11101"
+          <label class="form-label small fw-semibold" for="fZip">Zip Code</label>
+          <input id="fZip" name="zip" class="form-control form-control-sm" placeholder="11101"
                  value="{{ filters.zip_code }}">
         </div>
         <div class="mb-2">
-          <label class="form-label small fw-semibold">Building Class</label>
-          <input id="fClass" class="form-control form-control-sm" placeholder="e.g. D, R, A"
+          <label class="form-label small fw-semibold" for="fClass">Building Class</label>
+          <input id="fClass" name="class" class="form-control form-control-sm" placeholder="e.g. D, R, A"
                  value="{{ filters.building_class }}">
         </div>
         <div class="mb-2">
           <label class="form-label small fw-semibold">Year Built</label>
           <div class="d-flex gap-1">
-            <input id="fYearMin" class="form-control form-control-sm" placeholder="From"
+            <input id="fYearMin" name="year_min" class="form-control form-control-sm" placeholder="From"
                    value="{{ filters.year_min or '' }}">
-            <input id="fYearMax" class="form-control form-control-sm" placeholder="To"
+            <input id="fYearMax" name="year_max" class="form-control form-control-sm" placeholder="To"
                    value="{{ filters.year_max or '' }}">
           </div>
         </div>
         <div class="mb-2">
-          <label class="form-label small fw-semibold">Risk Level</label>
-          <select id="fRisk" class="form-select form-select-sm">
+          <label class="form-label small fw-semibold" for="fRisk">Risk Level</label>
+          <select id="fRisk" name="risk" class="form-select form-select-sm">
             <option value="">All</option>
             <option value="Low" {% if filters.risk_label=='Low' %}selected{% endif %}>Low</option>
             <option value="Moderate" {% if filters.risk_label=='Moderate' %}selected{% endif %}>Moderate</option>
@@ -44,210 +98,63 @@
         </div>
         <div class="mb-3">
           <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="fAsbestos"
+            <input class="form-check-input" type="checkbox" id="fAsbestos" name="asbestos" value="1"
                    {% if filters.has_asbestos %}checked{% endif %}>
             <label class="form-check-label small" for="fAsbestos">Asbestos flags only</label>
           </div>
         </div>
-        <button class="btn btn-success btn-sm w-100" onclick="applyFilters()">
+        <button class="btn btn-success btn-sm w-100" type="submit">
           <i class="bi bi-search me-1"></i>Apply
         </button>
-        <button class="btn btn-outline-secondary btn-sm w-100 mt-1" onclick="clearFilters()">
-          Clear
-        </button>
-        <hr class="my-2">
-        <label class="form-label small fw-semibold">Color markers by</label>
-        <div class="btn-group btn-group-sm w-100" id="colorByGroup">
-          <button class="btn btn-outline-secondary active" onclick="setColorBy('risk',this)">Risk</button>
-          <button class="btn btn-outline-secondary" onclick="setColorBy('ghg',this)">GHG</button>
-          <button class="btn btn-outline-secondary" onclick="setColorBy('age',this)">Age</button>
-        </div>
-        <div class="mt-2 small text-muted" id="mapCount">Loading…</div>
+        <a class="btn btn-outline-secondary btn-sm w-100 mt-1" href="/map">Clear</a>
+        <p class="mt-2 mb-0 small text-muted">
+          Map status and legend appear inside the 3D view.
+        </p>
       </div>
-    </div>
-
-    <!-- Legend -->
-    <div class="card mt-2">
-      <div class="card-header small">Legend</div>
-      <div class="card-body py-2">
-        <div id="legendRisk">
-          <div class="d-flex align-items-center gap-2 mb-1">
-            <span class="dot" style="background:#198754"></span><span class="small">Low risk</span>
-          </div>
-          <div class="d-flex align-items-center gap-2 mb-1">
-            <span class="dot" style="background:#ffc107"></span><span class="small">Moderate risk</span>
-          </div>
-          <div class="d-flex align-items-center gap-2 mb-1">
-            <span class="dot" style="background:#fd7e14"></span><span class="small">High risk</span>
-          </div>
-          <div class="d-flex align-items-center gap-2 mb-1">
-            <span class="dot" style="background:#dc3545"></span><span class="small">Critical risk</span>
-          </div>
-          <div class="d-flex align-items-center gap-2">
-            <span class="dot" style="background:#adb5bd"></span><span class="small">Unscored</span>
-          </div>
-        </div>
-        <div id="legendGhg" style="display:none">
-          <div class="d-flex align-items-center gap-2 mb-1"><span class="dot" style="background:#198754"></span><span class="small">&lt; 200 mt</span></div>
-          <div class="d-flex align-items-center gap-2 mb-1"><span class="dot" style="background:#ffc107"></span><span class="small">200–1,000 mt</span></div>
-          <div class="d-flex align-items-center gap-2 mb-1"><span class="dot" style="background:#fd7e14"></span><span class="small">1,000–5,000 mt</span></div>
-          <div class="d-flex align-items-center gap-2 mb-1"><span class="dot" style="background:#dc3545"></span><span class="small">&gt; 5,000 mt</span></div>
-          <div class="d-flex align-items-center gap-2"><span class="dot" style="background:#adb5bd"></span><span class="small">No data</span></div>
-        </div>
-        <div id="legendAge" style="display:none">
-          <div class="d-flex align-items-center gap-2 mb-1"><span class="dot" style="background:#dc3545"></span><span class="small">Before 1940</span></div>
-          <div class="d-flex align-items-center gap-2 mb-1"><span class="dot" style="background:#fd7e14"></span><span class="small">1940–1977</span></div>
-          <div class="d-flex align-items-center gap-2 mb-1"><span class="dot" style="background:#ffc107"></span><span class="small">1978–1999</span></div>
-          <div class="d-flex align-items-center gap-2 mb-1"><span class="dot" style="background:#198754"></span><span class="small">2000+</span></div>
-          <div class="d-flex align-items-center gap-2"><span class="dot" style="background:#adb5bd"></span><span class="small">Unknown</span></div>
-        </div>
-      </div>
-    </div>
+    </form>
   </div>
 
-  <!-- Map -->
+  <!-- MapLibre React island -->
   <div class="col-lg-9">
-    <div id="mainMap" style="height:680px; border-radius:12px; border:1px solid #dee2e6"></div>
+    <div id="carbon-map-root"
+         style="height:680px; border-radius:12px; border:1px solid var(--cs-card-border); overflow:hidden; background:#0a0c10">
+    </div>
+    {% if not map_bundle %}
+    <div class="alert alert-warning mt-2 mb-0 small">
+      Map bundle not found. Run <code>npm install</code> then <code>npm run build</code> to generate
+      <code>src/web/static/map/</code>.
+    </div>
+    {% endif %}
   </div>
 </div>
-
-<style>
-.dot { width:14px; height:14px; border-radius:50%; display:inline-block; flex-shrink:0; }
-</style>
 {% endblock %}
 
 {% block scripts %}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-
-<script>
-const RISK_COLORS = {
-  Low:'#198754', Moderate:'#ffc107', High:'#fd7e14',
-  Critical:'#dc3545', Unscored:'#adb5bd',
-};
-
-let map, clusterGroup, allFeatures = [];
-let currentColorBy = 'risk';
-
-function markerColor(p, colorBy) {
-  if (colorBy === 'risk') return RISK_COLORS[p.risk_label] || RISK_COLORS.Unscored;
-  if (colorBy === 'ghg') {
-    if (!p.ghg) return RISK_COLORS.Unscored;
-    if (p.ghg > 5000) return '#dc3545';
-    if (p.ghg > 1000) return '#fd7e14';
-    if (p.ghg > 200)  return '#ffc107';
-    return '#198754';
-  }
-  if (colorBy === 'age') {
-    if (!p.year_built) return RISK_COLORS.Unscored;
-    if (p.year_built < 1940) return '#dc3545';
-    if (p.year_built < 1978) return '#fd7e14';
-    if (p.year_built < 2000) return '#ffc107';
-    return '#198754';
-  }
-  return RISK_COLORS.Unscored;
+<style>
+.confidence-list { margin: 0; }
+.confidence-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 10px;
 }
-
-function buildLayers(features) {
-  clusterGroup.clearLayers();
-  features.forEach(feat => {
-    const [lng, lat] = feat.geometry.coordinates;
-    const p = feat.properties;
-    const color = markerColor(p, currentColorBy);
-    const marker = L.circleMarker([lat, lng], {
-      radius: 6, color, fillColor: color, fillOpacity: 0.85, weight: 1,
-    });
-    marker.bindPopup(`
-      <strong><a href="/building/${p.bin}" target="_blank">${p.address || p.bin}</a></strong><br>
-      BIN <code>${p.bin}</code> &nbsp; Zip <code>${p.zip || '—'}</code><br>
-      Class: ${p.building_class || '—'} &nbsp; Year: ${p.year_built || '—'}<br>
-      Risk: <strong style="color:${RISK_COLORS[p.risk_label] || '#555'}">${p.risk_label}</strong>
-        (score ${p.risk_score ?? '—'})<br>
-      GHG: ${p.ghg ? p.ghg.toLocaleString() + ' mt CO₂e' : '—'}
-        ${p.ghg_source === 'measured' ? '<span class="badge bg-success">measured</span>' : p.ghg ? '<span class="badge bg-secondary">est.</span>' : ''}<br>
-      Violations: ${p.violations} &nbsp; Asbestos: ${p.asbestos}
-      <br><a class="btn btn-sm btn-outline-success mt-1" href="/building/${p.bin}" target="_blank">Full detail →</a>
-    `, { maxWidth: 280 });
-    clusterGroup.addLayer(marker);
-  });
-  document.getElementById('mapCount').textContent =
-    `${features.length.toLocaleString()} buildings shown`;
+.confidence-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
 }
-
-function buildApiUrl() {
-  const params = new URLSearchParams();
-  const q    = document.getElementById('fSearch').value.trim();
-  const zip  = document.getElementById('fZip').value.trim();
-  const cls  = document.getElementById('fClass').value.trim();
-  const yMin = document.getElementById('fYearMin').value.trim();
-  const yMax = document.getElementById('fYearMax').value.trim();
-  const risk = document.getElementById('fRisk').value;
-  const asb  = document.getElementById('fAsbestos').checked;
-  if (q)    params.set('q', q);
-  if (zip)  params.set('zip', zip);
-  if (cls)  params.set('class', cls);
-  if (yMin) params.set('year_min', yMin);
-  if (yMax) params.set('year_max', yMax);
-  if (risk) params.set('risk', risk);
-  if (asb)  params.set('asbestos', '1');
-  params.set('limit', '8000');
-  return '/api/buildings.geojson?' + params.toString();
+.confidence-count {
+  margin-right: 4px;
+  font-variant-numeric: tabular-nums;
 }
-
-function applyFilters() {
-  document.getElementById('mapCount').textContent = 'Loading…';
-  clusterGroup.clearLayers();
-  fetch(buildApiUrl())
-    .then(r => r.json())
-    .then(gj => {
-      allFeatures = gj.features;
-      buildLayers(allFeatures);
-    })
-    .catch(e => {
-      document.getElementById('mapCount').textContent = 'Error: ' + e;
-    });
-}
-
-function clearFilters() {
-  ['fSearch','fZip','fClass','fYearMin','fYearMax'].forEach(id => {
-    document.getElementById(id).value = '';
-  });
-  document.getElementById('fRisk').value = '';
-  document.getElementById('fAsbestos').checked = false;
-  applyFilters();
-}
-
-function setColorBy(by, btn) {
-  document.querySelectorAll('#colorByGroup .btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  currentColorBy = by;
-  ['legendRisk','legendGhg','legendAge'].forEach(id => {
-    document.getElementById(id).style.display = 'none';
-  });
-  document.getElementById(
-    by === 'risk' ? 'legendRisk' : by === 'ghg' ? 'legendGhg' : 'legendAge'
-  ).style.display = 'block';
-  buildLayers(allFeatures);
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  map = L.map('mainMap').setView([40.728, -73.794], 12);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '© OpenStreetMap contributors',
-  }).addTo(map);
-
-  clusterGroup = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 50 });
-  map.addLayer(clusterGroup);
-  applyFilters();
-
-  // Also allow Enter key in filter inputs to apply
-  document.querySelectorAll('#fSearch,#fZip,#fClass,#fYearMin,#fYearMax').forEach(el => {
-    el.addEventListener('keydown', e => { if (e.key === 'Enter') applyFilters(); });
-  });
-});
-</script>
+</style>
+{% if map_bundle %}
+<script>window.__MAP_INIT__ = {{ map_init | tojson }};</script>
+{% for href in map_bundle.css %}
+<link rel="stylesheet" href="{{ href }}">
+{% endfor %}
+<script type="module" src="{{ map_bundle.js }}"></script>
+{% endif %}
 {% endblock %}

@@ -1,93 +1,131 @@
 {% extends "base.html" %}
-{% block title %}CarbonShift — Queens Building Data{% endblock %}
+{% block title %}CarbonShift — Queens Building Carbon Intelligence{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-  <div class="col-lg-8 offset-lg-2 text-center">
-    <h1 class="fw-bold mb-1">Queens Building Data</h1>
-    <p class="text-muted mb-4">Search by address, BIN, BBL, or zip code to explore building profiles,
-      violations, energy disclosures, and asbestos filings.</p>
-    <form action="/search" method="get" class="d-flex justify-content-center gap-2">
-      <input class="form-control form-control-lg" style="max-width:520px"
-             name="q" placeholder="e.g. Jamaica, 11101, 4059918, 4026780001">
-      <button class="btn btn-success btn-lg px-4" type="submit">
-        <i class="bi bi-search"></i> Search
-      </button>
-    </form>
-  </div>
-</div>
-
-{% if stats %}
-<div class="row g-3 mb-5">
-  <div class="col-6 col-md-3">
-    <div class="card stat-card p-3 text-center h-100">
-      <div class="display-6">{{ "{:,}".format(stats.buildings) }}</div>
-      <div class="text-muted small">Buildings</div>
+<div class="row mb-4 align-items-center">
+  <div class="col-lg-7">
+    <p class="text-success small fw-semibold text-uppercase mb-2" style="letter-spacing:.08em">
+      Queens · NYC Open Data
+    </p>
+    <h1 class="fw-bold mb-2">Building carbon intelligence,<br>with confidence made visible</h1>
+    <p class="text-muted mb-4">
+      Explore every Queens building on an interactive map. See estimated emissions and risk —
+      and whether each number is <strong>measured</strong> (LL84/97 disclosure) or
+      <strong>modeled</strong> from peer buildings.
+    </p>
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      <a href="/map" class="btn btn-success btn-lg px-4">
+        <i class="bi bi-map me-1"></i>Explore Map
+      </a>
+      <a href="/methodology" class="btn btn-outline-secondary btn-lg">
+        How confidence works
+      </a>
     </div>
+    <p class="text-muted small mb-0">
+      Or <a href="/search?q=">search by address, BIN, or zip</a> to jump straight to a building profile.
+    </p>
   </div>
-  <div class="col-6 col-md-3">
-    <div class="card stat-card p-3 text-center h-100">
-      <div class="display-6">{{ "{:,}".format(stats.violations) }}</div>
-      <div class="text-muted small">Violations</div>
-    </div>
-  </div>
-  <div class="col-6 col-md-3">
-    <div class="card stat-card p-3 text-center h-100">
-      <div class="display-6">{{ "{:,}".format(stats.buildings_with_energy) }}</div>
-      <div class="text-muted small">With Energy Data</div>
-    </div>
-  </div>
-  <div class="col-6 col-md-3">
-    <div class="card stat-card p-3 text-center h-100">
-      <div class="display-6 text-danger">{{ "{:,}".format(stats.asbestos_violations) }}</div>
-      <div class="text-muted small">Asbestos Flags</div>
-    </div>
-  </div>
-</div>
-{% else %}
-<div class="alert alert-info">
-  <i class="bi bi-info-circle me-2"></i>
-  Database is empty. Run <code>python run.py</code> to ingest data first.
-</div>
-{% endif %}
-
-<div class="row g-4">
-  <div class="col-md-4">
-    <div class="card h-100">
-      <div class="card-header"><i class="bi bi-search me-2"></i>Search Buildings</div>
-      <div class="card-body">
-        <p class="text-muted small">Search by any part of an address, zip code, BIN (7-digit
-          building ID), or BBL (10-digit tax lot ID).</p>
-        <ul class="small text-muted ps-3">
-          <li>Partial address: <code>Grand Avenue</code></li>
-          <li>Zip code: <code>11101</code></li>
-          <li>BIN: <code>4059918</code></li>
-          <li>BBL: <code>4026780001</code></li>
-        </ul>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-4">
-    <div class="card h-100">
-      <div class="card-header"><i class="bi bi-code-square me-2"></i>SQL Query</div>
-      <div class="card-body">
-        <p class="text-muted small">Run any SELECT query directly against the database and
-          download results as CSV.</p>
-        <a href="/query" class="btn btn-outline-secondary btn-sm">Open Query Tool →</a>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-4">
-    <div class="card h-100">
-      <div class="card-header"><i class="bi bi-download me-2"></i>Bulk Export</div>
-      <div class="card-body">
-        <p class="text-muted small">Download full tables as CSV for offline analysis.</p>
-        <div class="d-flex flex-column gap-1">
-          <a href="/export/buildings.csv" class="btn btn-outline-success btn-sm">Buildings</a>
-          <a href="/export/violations.csv" class="btn btn-outline-warning btn-sm">Violations</a>
-          <a href="/export/energy.csv" class="btn btn-outline-primary btn-sm">Energy & Emissions</a>
-          <a href="/export/asbestos.csv" class="btn btn-outline-danger btn-sm">Asbestos Projects</a>
+  <div class="col-lg-5">
+    {% if stats %}
+    <div class="row g-2">
+      <div class="col-6">
+        <div class="card stat-card p-3 text-center h-100">
+          <div class="display-6">{{ "{:,}".format(stats.buildings) }}</div>
+          <div class="text-muted small">Buildings mapped</div>
         </div>
+      </div>
+      <div class="col-6">
+        <div class="card stat-card p-3 text-center h-100">
+          <div class="display-6">{{ "{:,}".format(stats.buildings_with_energy) }}</div>
+          <div class="text-muted small">Measured emissions</div>
+        </div>
+      </div>
+      <div class="col-6">
+        <div class="card stat-card p-3 text-center h-100">
+          <div class="display-6">{{ "{:,}".format(stats.carbon_estimates) }}</div>
+          <div class="text-muted small">Carbon estimates</div>
+        </div>
+      </div>
+      <div class="col-6">
+        <div class="card stat-card p-3 text-center h-100">
+          <div class="display-6 text-danger">{{ "{:,}".format(stats.high_risk) }}</div>
+          <div class="text-muted small">High / critical risk</div>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info mb-0">
+      <i class="bi bi-info-circle me-2"></i>
+      Run <code>python run.py</code> then <code>python score.py</code> to populate the map.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="section-heading">Your journey</div>
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-1-circle me-2"></i>Explore the map</div>
+      <div class="card-body">
+        <p class="text-muted small mb-3">
+          Pan Queens in 3D. Buildings are colored by risk. Click any footprint to see
+          emissions, violations, and confidence at a glance.
+        </p>
+        <a href="/map" class="btn btn-success btn-sm">Open map →</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-2-circle me-2"></i>Understand confidence</div>
+      <div class="card-body">
+        <p class="text-muted small mb-3">
+          Not every number is measured. Learn how CarbonShift labels emissions as
+          measured, class-median modeled, or borough-median modeled.
+        </p>
+        <a href="/methodology" class="btn btn-outline-secondary btn-sm">Data confidence →</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-3-circle me-2"></i>Inspect a building</div>
+      <div class="card-body">
+        <p class="text-muted small mb-3">
+          Search for an address or BIN, open the full building profile, and follow
+          violations, asbestos filings, and energy history.
+        </p>
+        <form action="/search" method="get" class="d-flex gap-1">
+          <input class="form-control form-control-sm" name="q" placeholder="Address or BIN">
+          <button class="btn btn-outline-success btn-sm" type="submit"><i class="bi bi-search"></i></button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-bar-chart-line me-2"></i>Borough insights</div>
+      <div class="card-body">
+        <p class="text-muted small">
+          Trends across building age, emissions by class, violations, and asbestos — optional
+          context after you have explored the map.
+        </p>
+        <a href="/insights" class="btn btn-outline-secondary btn-sm">View insights →</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card h-100 border-0 bg-transparent" style="box-shadow:none">
+      <div class="card-body px-0">
+        <p class="text-muted small mb-1">
+          <i class="bi bi-tools me-1"></i>
+          Need raw tables or custom SQL? See <a href="/query">SQL Explorer</a>
+          and CSV downloads under <strong>Data Tools</strong> in the nav.
+        </p>
       </div>
     </div>
   </div>

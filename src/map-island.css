@@ -1,0 +1,38 @@
+/* Scoped to the Flask-mounted map island — do not style html/body globally. */
+.carbon-map-island {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 480px;
+  overflow: hidden;
+  background: #0a0c10;
+  isolation: isolate;
+}
+
+/* Standalone Vite dev preview shell (index.html) */
+.dev-map-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.dev-map-navbar {
+  flex-shrink: 0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  background: #212529;
+  color: #adb5bd;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+}
+
+.dev-map-stage {
+  flex: 1;
+  min-height: 0;
+}
+
+.dev-map-stage #carbon-map-root {
+  height: 100%;
+}

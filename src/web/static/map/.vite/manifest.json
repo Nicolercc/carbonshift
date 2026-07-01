@@ -1,0 +1,11 @@
+{
+  "src/map-entry.tsx": {
+    "file": "assets/map-BLmxsAbU.js",
+    "name": "map",
+    "src": "src/map-entry.tsx",
+    "isEntry": true,
+    "css": [
+      "assets/map-fZ0WqVYq.css"
+    ]
+  }
+}

@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Data Confidence — CarbonShift{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+  <div class="col-lg-8">
+    <h1 class="h3 fw-bold mb-2">Data confidence</h1>
+    <p class="text-muted">
+      CarbonShift’s core value is not just showing a carbon number — it is showing
+      <strong>whether you can trust that number</strong>. Every building carries a
+      confidence label for emissions and a separate risk score for building conditions.
+    </p>
+  </div>
+  <div class="col-lg-4 text-lg-end">
+    <a href="/map" class="btn btn-success"><i class="bi bi-map me-1"></i>Explore Map</a>
+  </div>
+</div>
+
+{% if stats %}
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card stat-card p-3 text-center h-100">
+      <div class="display-6">{{ "{:,}".format(stats.buildings_with_energy) }}</div>
+      <div class="text-muted small">Measured (LL84/97)</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card stat-card p-3 text-center h-100">
+      <div class="display-6">{{ "{:,}".format([stats.carbon_estimates - stats.buildings_with_energy, 0]|max) }}</div>
+      <div class="text-muted small">Modeled estimates</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card stat-card p-3 text-center h-100">
+      <div class="display-6">{{ "{:,}".format(stats.buildings) }}</div>
+      <div class="text-muted small">Total buildings</div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">Emissions confidence levels</div>
+      <div class="card-body">
+        <dl class="mb-0">
+          <dt class="mb-1"><span class="badge bg-success">Measured</span> High confidence</dt>
+          <dd class="text-muted small mb-3">
+            Reported under NYC Local Law 84/97 energy disclosure for buildings ≥25,000 sq ft.
+            These are actual metered GHG totals from the latest filing year.
+          </dd>
+          <dt class="mb-1"><span class="badge bg-warning text-dark">Class median</span> Medium confidence</dt>
+          <dd class="text-muted small mb-3">
+            No direct filing for this building. CarbonShift applies the median emissions intensity
+            of measured peers with the same PLUTO building class, scaled by floor area.
+          </dd>
+          <dt class="mb-1"><span class="badge bg-secondary">Borough median</span> Lower confidence</dt>
+          <dd class="text-muted small mb-0">
+            Fewer than three class peers exist. Falls back to a Queens-wide median intensity.
+            Useful for direction, not precision.
+          </dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">Risk labels on the map</div>
+      <div class="card-body">
+        <p class="text-muted small">
+          Risk scores combine violations (including asbestos flags), building age, and emissions
+          exposure. Colors on the map reflect these labels:
+        </p>
+        <ul class="list-unstyled small mb-3">
+          <li class="mb-2"><span class="badge" style="background:#3DAA9E">Low</span> — fewer condition signals</li>
+          <li class="mb-2"><span class="badge" style="background:#C4A035">Moderate</span> — mixed signals</li>
+          <li class="mb-2"><span class="badge" style="background:#C96B52">High</span> — elevated concern</li>
+          <li class="mb-2"><span class="badge" style="background:#9E4A4A">Critical</span> — strongest retrofit priority</li>
+          <li><span class="badge bg-secondary">Unscored</span> — insufficient inputs</li>
+        </ul>
+        <p class="text-muted small mb-0">
+          On the map, open any building card to see both the risk headline and emissions
+          confidence before visiting the <a href="/search?q=">full building profile</a>.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header">Data sources</div>
+  <div class="card-body">
+    <p class="text-muted small mb-2">
+      All records come from NYC Open Data: PLUTO building profiles, HPD and DOB violations,
+      asbestos abatement filings (ACP-7), and LL84/97 energy disclosures. Buildings are joined
+      through the Building Footprints BIN↔BBL crosswalk.
+    </p>
+    <p class="text-muted small mb-0">
+      Want borough-wide charts? See <a href="/insights">Insights</a>.
+      For raw exports or SQL, use <strong>Data Tools</strong> in the navigation.
+    </p>
+  </div>
+</div>
+{% endblock %}

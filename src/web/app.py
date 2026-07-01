@@ -14,6 +14,7 @@ from src.query.lookup import (
     search_buildings, get_building, get_violations,
     get_energy, get_asbestos, run_sql, stats_summary,
     buildings_geojson,
+    carbon_source_counts,
 )
 from src.query.export import export_to_csv_string, EXPORT_QUERIES
 from src.query.charts import (
@@ -25,8 +26,48 @@ from src.query.charts import (
 )
 
 TEMPLATE_DIR = str(pathlib.Path(__file__).parent / "templates")
-app = Flask(__name__, template_folder=TEMPLATE_DIR)
+STATIC_DIR = str(pathlib.Path(__file__).parent / "static")
+app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
 app.secret_key = os.getenv("FLASK_SECRET", "carbonshift-dev")
+
+MAP_MANIFEST_PATH = (
+    pathlib.Path(__file__).parent / "static" / "map" / ".vite" / "manifest.json"
+)
+MAP_STATIC_BASE = "/static/map/"
+
+
+@app.context_processor
+def inject_nav():
+    path = request.path
+    return {
+        "nav_path": path,
+        "nav_insights": path in ("/charts", "/insights"),
+        "nav_data_tools": path == "/query" or path.startswith("/export/"),
+    }
+
+
+def _load_map_bundle() -> dict | None:
+    """Resolve hashed JS/CSS paths from the Vite build manifest."""
+    if not MAP_MANIFEST_PATH.is_file():
+        return None
+    try:
+        manifest = json.loads(MAP_MANIFEST_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    entry = manifest.get("src/map-entry.tsx")
+    if not entry:
+        for key, value in manifest.items():
+            if key.endswith("map-entry.tsx"):
+                entry = value
+                break
+    if not entry or "file" not in entry:
+        return None
+
+    return {
+        "js": MAP_STATIC_BASE + entry["file"],
+        "css": [MAP_STATIC_BASE + href for href in entry.get("css", [])],
+    }
 
 
 def _conn():
@@ -150,10 +191,14 @@ def query():
 
 
 @app.route("/charts")
+@app.route("/insights")
 def charts():
+    tab = request.args.get("tab", "overview")
+    if tab == "map":
+        return redirect(url_for("map_view", **{k: v for k, v in request.args.items() if k != "tab"}))
+
     conn = _conn()
     try:
-        tab = request.args.get("tab", "overview")
         chart_data = {
             "violations_by_source": _json(violations_by_source(conn)),
             "buildings_by_decade":  _json(buildings_by_decade(conn)),
@@ -175,12 +220,46 @@ def charts():
     return render_template("charts.html", charts=chart_data, stats=stats, active_tab=tab)
 
 
+@app.route("/methodology")
+def methodology():
+    conn = _conn()
+    try:
+        stats = stats_summary(conn)
+    except Exception:
+        stats = {}
+    finally:
+        conn.close()
+    return render_template("methodology.html", stats=stats)
+
+
 @app.route("/map")
 def map_view():
-    """Standalone full-map page."""
+    """Map page — Flask shell + MapLibre React island."""
     filters = _filter_args()
     q = request.args.get("q", "").strip()
-    return render_template("map.html", q=q, filters=filters)
+    map_init = {
+        "q": q,
+        "zip": filters["zip_code"],
+        "class": filters["building_class"],
+        "year_min": filters["year_min"],
+        "year_max": filters["year_max"],
+        "risk": filters["risk_label"],
+        "asbestos": filters["has_asbestos"],
+        "limit": 8000,
+    }
+    conn = _conn()
+    try:
+        confidence = carbon_source_counts(conn)
+    finally:
+        conn.close()
+    return render_template(
+        "map.html",
+        q=q,
+        filters=filters,
+        map_init=map_init,
+        map_bundle=_load_map_bundle(),
+        confidence=confidence,
+    )
 
 
 # ── API ───────────────────────────────────────────────────────────────────────

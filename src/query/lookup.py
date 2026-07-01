@@ -187,6 +187,27 @@ def stats_summary(conn: sqlite3.Connection) -> dict:
     }
 
 
+def carbon_source_counts(conn: sqlite3.Connection) -> dict:
+    """Count carbon_estimates rows grouped by eui_source for confidence UI."""
+    rows = conn.execute(
+        """
+        SELECT eui_source, COUNT(*) AS n
+        FROM carbon_estimates
+        GROUP BY eui_source
+        """
+    ).fetchall()
+    by_source = {r["eui_source"]: r["n"] for r in rows if r["eui_source"]}
+    measured = by_source.get("measured", 0)
+    class_median = by_source.get("class_median", 0)
+    borough_median = by_source.get("borough_median", 0)
+    return {
+        "measured": measured,
+        "class_median": class_median,
+        "borough_median": borough_median,
+        "total": measured + class_median + borough_median,
+    }
+
+
 def buildings_geojson(
     conn: sqlite3.Connection,
     q: str = "",

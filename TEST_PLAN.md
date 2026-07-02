@@ -505,3 +505,82 @@ violations | 1663986
 Home: HTTP 200
 GeoJSON: HTTP 200 time=0.xxxs
 ```
+
+---
+
+## Section 11 — MapLibre island & Data Confidence page
+
+The `/map` route serves a Vite-built React bundle inside the Flask template.
+Flask remains the only runtime server — do not use `npm run dev` for production
+verification.
+
+### 11.1 Build the map bundle
+
+Run from the project root (Node 18+ required):
+
+```bash
+npm install
+npm run build
+```
+
+**Pass:** Command exits 0 and prints `✓ built`. Files exist under
+`src/web/static/map/assets/` (hashed `map-*.js` and `map-*.css`) and
+`src/web/static/map/.vite/manifest.json`.
+
+**Fail:** `tsc` errors or missing `node_modules` — run `npm install` first.
+No `map-*.js` in `src/web/static/map/assets/` — the map page will render an
+empty island or a "Map bundle not found" warning.
+
+Re-run `npm run build` after any change to `src/components/map/` or
+`src/map-entry.tsx`.
+
+### 11.2 Verify `/map` serves the built bundle
+
+With `python web.py` running on port 5050:
+
+```bash
+curl -s http://localhost:5050/map | grep -E 'carbon-map-root|/static/map/assets/map-.*\.js'
+```
+
+**Pass:** Both patterns match in the HTML:
+- `id="carbon-map-root"` — React mount point inside the Flask sidebar layout
+- `<script type="module" src="/static/map/assets/map-….js">` — hashed bundle
+  loaded from Flask static files (not from a Vite dev server)
+
+Also confirm in page source:
+- `window.__MAP_INIT__` is present (filter/limit config injected by Flask)
+- `<link rel="stylesheet" href="/static/map/assets/map-….css">` is present
+- No `leaflet` references (MapLibre replaced the old Leaflet map on `/map`)
+
+**Fail:**
+- `carbon-map-root` missing → check `src/web/templates/map.html`
+- No `/static/map/assets/map-*.js` → run `npm run build`; restart Flask
+- Script returns 404 → bundle path mismatch; rebuild and confirm manifest
+
+Optional browser check: open `http://localhost:5050/map`, confirm the Flask
+navbar is visible, the emissions-confidence sidebar panel loads, and the map
+island shows **"Live Queens data"** (not "Demo sample data") when the API is
+healthy.
+
+### 11.3 Verify `/methodology` route
+
+```bash
+curl -s -o /dev/null -w "HTTP %{http_code}\n" http://localhost:5050/methodology
+curl -s http://localhost:5050/methodology | grep -c "Data confidence"
+```
+
+**Pass:** `HTTP 200`. Page body includes `Data confidence` heading and explains
+the three emissions confidence levels:
+- Measured LL84/97 (high confidence)
+- Class median / similar buildings (medium confidence)
+- Borough median / borough fallback (lower confidence)
+
+When `score.py` has been run, the page also shows non-zero stat cards for
+measured and modeled building counts.
+
+**Fail:** `HTTP 404` → route not registered in `app.py`. Empty stats with
+no explanatory copy → template error. All stat cards zero after a completed
+`score.py` run → check `stats_summary()` in `src/query/lookup.py`.
+
+Legacy alias: `/insights` and `/charts` both serve the borough insights page;
+`/charts?tab=map` redirects to `/map`.

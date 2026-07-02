@@ -32,7 +32,7 @@ CarbonShift ingests eight NYC Open Data datasets for Queens, scores every buildi
 | **Config** | `python-dotenv` | Keeps secrets out of code and version control |
 | **Web framework** | `flask` 3.x | Lightweight; Jinja2 templates bundled; no build step |
 | **Charts** | Chart.js 4 (CDN) | Loaded from CDN — no npm/bundler required |
-| **Maps** | Leaflet.js + MarkerCluster (CDN) | Interactive map with clustering; no npm required |
+| **Maps** | MapLibre GL + React (Vite) | `/map` embeds a Vite-built React island inside the Flask template; `npm run build` emits static assets to `src/web/static/map/` — single server on port 5050, not a separate Node app |
 | **Data manipulation** | `pandas` | Available for future transform work |
 | **Data source** | NYC Open Data — Socrata REST API | Uniform `$limit`/`$offset` pagination and auth across all 8 datasets |
 

@@ -1,4 +1,6 @@
+import collections.abc
 import os
+import re
 import sqlite3
 from pathlib import Path
 
@@ -7,7 +9,120 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def get_connection() -> sqlite3.Connection:
+# ── Postgres adapter ──────────────────────────────────────────────────────────
+
+class _PgRow(collections.abc.Mapping):
+    """Row wrapper that mimics sqlite3.Row: supports row[0], row["col"], dict(row)."""
+    __slots__ = ("_cols", "_vals", "_d")
+
+    def __init__(self, cols: list, values: tuple):
+        self._cols = tuple(cols)
+        self._vals = tuple(values)
+        self._d = dict(zip(cols, values))
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return self._vals[key]
+        return self._d[key]
+
+    def __iter__(self):
+        return iter(self._d)
+
+    def __len__(self):
+        return len(self._d)
+
+    def keys(self):
+        return self._cols
+
+
+class _PgCursor:
+    def __init__(self, pg_cursor):
+        self._c = pg_cursor
+
+    @property
+    def description(self):
+        return self._c.description
+
+    def _col_names(self):
+        return [d[0] for d in self._c.description] if self._c.description else []
+
+    def fetchall(self):
+        cols = self._col_names()
+        return [_PgRow(cols, row) for row in self._c.fetchall()]
+
+    def fetchone(self):
+        cols = self._col_names()
+        row = self._c.fetchone()
+        return _PgRow(cols, row) if row else None
+
+
+# MINIMAL TRANSLATION LAYER — handles only the specific SQLite constructs
+# present in this codebase at the time of the Queens Postgres migration
+# (GLOB year pattern, :name named params, ? positional params). This is NOT
+# a general SQLite→Postgres compatibility shim. Manhattan-phase queries and
+# PostGIS expressions must be written in valid Postgres SQL directly; do not
+# rely on this function to adapt syntax it was never built for.
+def _translate_sql(sql: str, params):
+    """Translate SQLite-dialect SQL to Postgres-compatible SQL."""
+    # charts.py violations_over_time() uses SQLite GLOB for 4-digit year match
+    sql = sql.replace(
+        "GLOB '[0-9][0-9][0-9][0-9]'",
+        "~ '^[0-9]{4}$'",
+    )
+    if isinstance(params, dict):
+        # Named params: :name → %(name)s
+        sql = re.sub(r":(\w+)", r"%(\1)s", sql)
+    elif params is not None:
+        # Positional params: ? → %s
+        sql = sql.replace("?", "%s")
+    return sql, params
+
+
+class PgConn:
+    def __init__(self, pg_conn):
+        self._conn = pg_conn
+
+    def execute(self, sql: str, params=None):
+        translated_sql, translated_params = _translate_sql(sql, params)
+        cur = self._conn.cursor()
+        try:
+            cur.execute(translated_sql, translated_params)
+        except Exception:
+            self._conn.rollback()
+            raise
+        return _PgCursor(cur)
+
+    def close(self):
+        try:
+            self._conn.commit()
+        except Exception:
+            self._conn.rollback()
+            raise
+        finally:
+            self._conn.close()
+
+    def commit(self):
+        self._conn.commit()
+
+    def rollback(self):
+        self._conn.rollback()
+
+
+def get_pg_connection(dsn: str) -> "PgConn":
+    import psycopg2
+    try:
+        conn = psycopg2.connect(dsn)
+    except psycopg2.OperationalError as e:
+        raise RuntimeError(f"Postgres connection failed: {e}") from e
+    return PgConn(conn)
+
+
+# ── SQLite / routing ──────────────────────────────────────────────────────────
+
+def get_connection():
+    dsn = os.getenv("DATABASE_URL")
+    if dsn:
+        return get_pg_connection(dsn)
     db_path = os.getenv("DB_PATH", "data/carbonshift.db")
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path)
@@ -18,6 +133,9 @@ def get_connection() -> sqlite3.Connection:
 
 
 def init_db() -> None:
+    if os.getenv("DATABASE_URL"):
+        print("Postgres mode: schema applied via migrate_to_pg.py — skipping SQLite init.")
+        return
     schema_path = Path(__file__).parent / "schema.sql"
     conn = get_connection()
     with open(schema_path) as f:

@@ -4,7 +4,7 @@ import json
 import os
 import pathlib
 
-from flask import Flask, render_template, request, redirect, url_for, Response, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, Response, flash, jsonify, abort
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -28,7 +28,14 @@ from src.query.charts import (
 TEMPLATE_DIR = str(pathlib.Path(__file__).parent / "templates")
 STATIC_DIR = str(pathlib.Path(__file__).parent / "static")
 app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
-app.secret_key = os.getenv("FLASK_SECRET", "carbonshift-dev")
+_secret = os.getenv("FLASK_SECRET")
+if not _secret:
+    if os.getenv("FLASK_ENV") == "production":
+        raise RuntimeError(
+            "FLASK_SECRET must be set in production (set the FLASK_SECRET env var)"
+        )
+    _secret = "carbonshift-dev"
+app.secret_key = _secret
 
 MAP_MANIFEST_PATH = (
     pathlib.Path(__file__).parent / "static" / "map" / ".vite" / "manifest.json"
@@ -71,7 +78,11 @@ def _load_map_bundle() -> dict | None:
 
 
 def _conn():
-    return get_connection()
+    try:
+        return get_connection()
+    except RuntimeError as e:
+        app.logger.error("Database unavailable: %s", e)
+        abort(503)
 
 
 def _json(obj) -> str:
@@ -296,6 +307,8 @@ def api_buildings_geojson():
 @app.route("/api/score", methods=["POST"])
 def api_score():
     """Trigger scoring pipeline (carbon + risk) from the web UI."""
+    if os.getenv("FLASK_ENV") != "development":
+        return jsonify({"ok": False, "error": "Scoring endpoint is disabled outside development"}), 403
     try:
         init_db()
         conn = _conn()

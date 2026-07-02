@@ -95,7 +95,7 @@ export const sampleBuildings: BuildingFeatureCollection = {
         primary_driver:
           "8 open violations · Class D4 use profile · Risk score 15",
         suggested_action:
-          "Schedule comprehensive energy audit and prioritize electrification within 18 months.",
+          "Schedule comprehensive energy audit and prioritize electrification as part of ongoing capital planning.",
       },
     },
     {
@@ -166,7 +166,7 @@ export const sampleBuildings: BuildingFeatureCollection = {
         primary_driver:
           "5 open violations · Class R9 use profile · Risk score 11",
         suggested_action:
-          "Schedule comprehensive energy audit and prioritize electrification within 18 months.",
+          "Schedule comprehensive energy audit and prioritize electrification as part of ongoing capital planning.",
       },
     },
     {

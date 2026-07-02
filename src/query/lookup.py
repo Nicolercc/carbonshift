@@ -83,9 +83,7 @@ def search_buildings(
         LEFT JOIN building_profiles bp ON bp.building_id = b.bin
         LEFT JOIN building_risk_scores rs ON rs.building_id = b.bin
         LEFT JOIN carbon_estimates ce ON ce.building_id = b.bin
-        LEFT JOIN energy_emissions ee ON ee.building_id = b.bin
         {where_sql}
-        GROUP BY b.bin
         ORDER BY b.full_address
         LIMIT :limit
         """,
@@ -165,7 +163,7 @@ def run_sql(conn: sqlite3.Connection, sql: str) -> tuple[list[str], list[dict]]:
         raise ValueError("Only SELECT statements are allowed.")
     cursor = conn.execute(stripped)
     cols = [d[0] for d in cursor.description] if cursor.description else []
-    rows = [dict(zip(cols, r)) for r in cursor.fetchall()]
+    rows = [dict(r) for r in cursor.fetchall()]
     return cols, rows
 
 

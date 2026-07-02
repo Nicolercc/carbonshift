@@ -1,6 +1,10 @@
 {
   "src/map-entry.tsx": {
+<<<<<<< HEAD
     "file": "assets/map-M0V79-zt.js",
+=======
+    "file": "assets/map-BLmxsAbU.js",
+>>>>>>> 5e2f730b756a80e151fbf84d94154a05aeb12269
     "name": "map",
     "src": "src/map-entry.tsx",
     "isEntry": true,

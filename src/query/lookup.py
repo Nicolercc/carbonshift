@@ -28,7 +28,7 @@ def search_buildings(
     # Keyword / identifier match
     if q:
         where_parts.append(
-            "(b.bin = :q OR b.bbl = :q OR b.zip_code = :q OR b.full_address LIKE :like)"
+            "(b.bin = :q OR b.bbl = :q OR b.zip_code = :q OR b.full_address ILIKE :like)"
         )
 
     # Advanced filters
@@ -115,17 +115,26 @@ def get_building(conn: sqlite3.Connection, bin_val: str) -> dict | None:
     return dict(row) if row else None
 
 
-def get_violations(conn: sqlite3.Connection, bin_val: str) -> list[dict]:
+def get_violations(
+    conn: sqlite3.Connection,
+    bin_val: str,
+    limit: int | None = None,
+) -> list[dict]:
+    limit_sql = "LIMIT :limit" if limit is not None else ""
+    params = {"bin": bin_val}
+    if limit is not None:
+        params["limit"] = limit
     rows = conn.execute(
-        """
+        f"""
         SELECT source_dataset, issuing_agency, violation_number, violation_class,
                severity, issue_date, current_status, violation_description,
                penalty_imposed, balance_due, is_asbestos_related
         FROM building_violations
-        WHERE building_id = ?
+        WHERE building_id = :bin
         ORDER BY issue_date DESC
+        {limit_sql}
         """,
-        (bin_val,),
+        params,
     ).fetchall()
     return [dict(r) for r in rows]
 
@@ -144,16 +153,25 @@ def get_energy(conn: sqlite3.Connection, bin_val: str) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def get_asbestos(conn: sqlite3.Connection, bin_val: str) -> list[dict]:
+def get_asbestos(
+    conn: sqlite3.Connection,
+    bin_val: str,
+    limit: int | None = None,
+) -> list[dict]:
+    limit_sql = "LIMIT :limit" if limit is not None else ""
+    params = {"bin": bin_val}
+    if limit is not None:
+        params["limit"] = limit
     rows = conn.execute(
-        """
+        f"""
         SELECT control_number, project_status, project_start_date,
                project_end_date, contractor_name, air_monitor_name
         FROM asbestos_projects
-        WHERE building_id = ?
+        WHERE building_id = :bin
         ORDER BY project_start_date DESC
+        {limit_sql}
         """,
-        (bin_val,),
+        params,
     ).fetchall()
     return [dict(r) for r in rows]
 
@@ -207,6 +225,58 @@ def carbon_source_counts(conn: sqlite3.Connection) -> dict:
     }
 
 
+def data_health_summary(conn: sqlite3.Connection) -> dict:
+    """Return product-facing data health checks for frontend/debug surfaces."""
+    expected_tables = [
+        "building_crosswalk",
+        "buildings",
+        "building_profiles",
+        "building_violations",
+        "asbestos_projects",
+        "energy_emissions",
+        "carbon_estimates",
+        "building_risk_scores",
+        "building_footprints",
+    ]
+
+    table_counts: dict[str, int | None] = {}
+    for table in expected_tables:
+        try:
+            table_counts[table] = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+        except Exception:
+            table_counts[table] = None
+
+    def safe_one(sql: str) -> int | None:
+        try:
+            row = conn.execute(sql).fetchone()
+            return int(row[0] or 0) if row else None
+        except Exception:
+            return None
+
+    return {
+        "tables": table_counts,
+        "map_readiness": {
+            "buildings_with_coordinates": safe_one(
+                "SELECT COUNT(*) FROM buildings WHERE latitude IS NOT NULL AND longitude IS NOT NULL"
+            ),
+            "buildings_with_footprints": safe_one(
+                "SELECT COUNT(DISTINCT bin) FROM building_footprints"
+            ),
+            "buildings_with_scores": safe_one(
+                "SELECT COUNT(*) FROM building_risk_scores WHERE risk_score IS NOT NULL"
+            ),
+            "buildings_with_carbon_estimates": safe_one(
+                "SELECT COUNT(*) FROM carbon_estimates"
+            ),
+        },
+        "known_gaps": [
+            "Manhattan energy/emissions ingestion is not complete yet.",
+            "Some frontend copy and viewport defaults may still be Queens-first.",
+            "API consumers should treat null scores, carbon estimates, and geometry as expected states.",
+        ],
+    }
+
+
 def buildings_geojson(
     conn: sqlite3.Connection,
     q: str = "",
@@ -232,7 +302,7 @@ def buildings_geojson(
 
     if q:
         where_parts.append(
-            "(b.bin = :q OR b.bbl = :q OR b.zip_code = :q OR b.full_address LIKE :like)"
+            "(b.bin = :q OR b.bbl = :q OR b.zip_code = :q OR b.full_address ILIKE :like)"
         )
         params["q"] = q
         params["like"] = f"%{q}%"

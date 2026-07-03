@@ -13,7 +13,7 @@ from src.db.init_db import get_connection, init_db
 from src.query.lookup import (
     search_buildings, get_building, get_violations,
     get_energy, get_asbestos, run_sql, stats_summary,
-    buildings_geojson,
+    buildings_geojson, data_health_summary,
     carbon_source_counts,
 )
 from src.query.export import export_to_csv_string, EXPORT_QUERIES
@@ -36,6 +36,48 @@ if not _secret:
         )
     _secret = "carbonshift-dev"
 app.secret_key = _secret
+
+
+def _configured_cors_origins() -> set[str]:
+    """Return explicit frontend origins allowed to call the JSON API."""
+    raw = os.getenv("CORS_ALLOWED_ORIGINS", "")
+    return {origin.strip().rstrip("/") for origin in raw.split(",") if origin.strip()}
+
+
+def _default_dev_cors_origins() -> set[str]:
+    if os.getenv("FLASK_ENV") == "production":
+        return set()
+    return {
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    }
+
+
+def _cors_origin_for(origin: str | None) -> str | None:
+    if not origin:
+        return None
+    normalized = origin.rstrip("/")
+    allowed = _configured_cors_origins() or _default_dev_cors_origins()
+    if "*" in allowed and os.getenv("FLASK_ENV") != "production":
+        return normalized
+    if normalized in allowed:
+        return normalized
+    return None
+
+
+@app.after_request
+def add_cors_headers(response):
+    """Allow a separate Next.js frontend to consume Flask JSON endpoints."""
+    allowed_origin = _cors_origin_for(request.headers.get("Origin"))
+    if allowed_origin:
+        response.headers["Access-Control-Allow-Origin"] = allowed_origin
+        response.headers["Access-Control-Allow-Credentials"] = "false"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers.add("Vary", "Origin")
+    return response
 
 MAP_MANIFEST_PATH = (
     pathlib.Path(__file__).parent / "static" / "map" / ".vite" / "manifest.json"
@@ -94,6 +136,11 @@ def _int_or_none(val) -> int | None:
         return int(val) if val else None
     except (ValueError, TypeError):
         return None
+
+
+def _limit_arg(default: int, maximum: int) -> int:
+    requested = _int_or_none(request.args.get("limit")) or default
+    return max(1, min(requested, maximum))
 
 
 def _filter_args():
@@ -275,10 +322,151 @@ def map_view():
 
 # ── API ───────────────────────────────────────────────────────────────────────
 
+@app.route("/api/health")
+def api_health():
+    try:
+        conn = get_connection()
+        conn.execute("SELECT 1").fetchone()
+        conn.close()
+    except Exception as e:
+        return jsonify({
+            "ok": False,
+            "service": "carbonshift-api",
+            "database": "unavailable",
+            "error": str(e),
+        }), 503
+
+    return jsonify({
+        "ok": True,
+        "service": "carbonshift-api",
+        "database": "ok",
+    })
+
+
+@app.route("/api/stats")
+@app.route("/api/stats/summary")
+def api_stats_summary():
+    conn = _conn()
+    try:
+        stats = stats_summary(conn)
+        carbon_sources = carbon_source_counts(conn)
+    finally:
+        conn.close()
+
+    return jsonify({
+        "stats": stats,
+        "carbon_sources": carbon_sources,
+    })
+
+
+@app.route("/api/data-health")
+def api_data_health():
+    conn = _conn()
+    try:
+        health = data_health_summary(conn)
+    finally:
+        conn.close()
+
+    return jsonify(health)
+
+
+@app.route("/api/buildings/search")
+def api_buildings_search():
+    q = request.args.get("q", "").strip()
+    filters = _filter_args()
+    limit = _limit_arg(default=25, maximum=100)
+
+    conn = _conn()
+    try:
+        results = search_buildings(conn, q, limit=limit, **filters)
+    finally:
+        conn.close()
+
+    return jsonify({
+        "query": q,
+        "filters": {k: v for k, v in filters.items() if v},
+        "count": len(results),
+        "limit": limit,
+        "results": results,
+    })
+
+
+def _risk_drivers(risk_detail: str | None) -> list[str]:
+    if not risk_detail:
+        return []
+    normalized = str(risk_detail).replace(" · ", ";").replace("|", ";")
+    return [part.strip() for part in normalized.split(";") if part.strip()]
+
+
+def _building_detail_payload(conn, bin_val: str, record_limit: int) -> dict | None:
+    building_row = get_building(conn, bin_val)
+    if not building_row:
+        return None
+
+    violations = get_violations(conn, bin_val, limit=record_limit)
+    energy = get_energy(conn, bin_val)
+    asbestos = get_asbestos(conn, bin_val, limit=record_limit)
+    asbestos_violation_count = sum(1 for v in violations if v.get("is_asbestos_related"))
+
+    return {
+        "building": building_row,
+        "signals": {
+            "risk": {
+                "score": building_row.get("risk_score"),
+                "label": building_row.get("risk_label") or "Unscored",
+                "confidence": building_row.get("confidence_label"),
+                "drivers": _risk_drivers(building_row.get("risk_detail")),
+            },
+            "carbon": {
+                "estimated_ghg_metric_tons": building_row.get("estimated_ghg_metric_tons"),
+                "eui_source": building_row.get("eui_source"),
+                "site_eui": building_row.get("site_eui"),
+                "peer_building_count": building_row.get("peer_building_count"),
+            },
+            "compliance": {
+                "violation_count_returned": len(violations),
+                "asbestos_related_violation_count_returned": asbestos_violation_count,
+            },
+            "asbestos": {
+                "project_count_returned": len(asbestos),
+                "has_asbestos_signal": asbestos_violation_count > 0 or len(asbestos) > 0,
+            },
+            "data_completeness": {
+                "has_location": bool(building_row.get("latitude") and building_row.get("longitude")),
+                "has_profile": bool(building_row.get("building_class") or building_row.get("building_area")),
+                "has_risk_score": building_row.get("risk_score") is not None,
+                "has_carbon_estimate": building_row.get("estimated_ghg_metric_tons") is not None,
+            },
+        },
+        "records": {
+            "violations": violations,
+            "energy": energy,
+            "asbestos": asbestos,
+        },
+        "record_limit": record_limit,
+    }
+
+
+@app.route("/api/buildings/<bin_val>")
+def api_building_detail(bin_val):
+    record_limit = _limit_arg(default=50, maximum=200)
+
+    conn = _conn()
+    try:
+        payload = _building_detail_payload(conn, bin_val, record_limit)
+    finally:
+        conn.close()
+
+    if not payload:
+        return jsonify({"ok": False, "error": f"No building found with BIN {bin_val}"}), 404
+
+    return jsonify(payload)
+
+
 @app.route("/api/buildings.geojson")
 def api_buildings_geojson():
     q = request.args.get("q", "").strip()
-    limit = min(_int_or_none(request.args.get("limit")) or 5000, 10000)
+    limit = _limit_arg(default=5000, maximum=10000)
     zip_code       = request.args.get("zip", "").strip()
     building_class = request.args.get("class", "").strip()
     year_min       = _int_or_none(request.args.get("year_min"))

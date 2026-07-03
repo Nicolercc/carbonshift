@@ -10,19 +10,21 @@ CarbonShift ingests NYC Open Data building records for Queens and Manhattan, sco
 
 1. [Tech Stack](#tech-stack)
 2. [Prerequisites](#prerequisites)
-3. [Installation](#installation)
-4. [Configuration](#configuration)
-5. [Quick Start](#quick-start)
-6. [Pipeline — `run.py`](#pipeline----runpy)
-7. [Scoring — `score.py`](#scoring----scorepy)
-8. [Query CLI — `query.py`](#query-cli----querypy)
-9. [Web Interface — `web.py`](#web-interface----webpy)
-10. [Project Structure](#project-structure)
-11. [Datasets Ingested](#datasets-ingested)
-12. [Database Schema](#database-schema)
-13. [Building Footprints](#building-footprints)
-14. [Live Data State](#live-data-state)
-15. [Known Gotchas](#known-gotchas)
+3. [For Collaborators — Getting the Latest Work](#for-collaborators--getting-the-latest-work)
+4. [Installation](#installation)
+5. [Configuration](#configuration)
+6. [Quick Start](#quick-start)
+7. [Pipeline — `run.py`](#pipeline----runpy)
+8. [Scoring — `score.py`](#scoring----scorepy)
+9. [Query CLI — `query.py`](#query-cli----querypy)
+10. [Web Interface — `web.py`](#web-interface----webpy)
+11. [Project Structure](#project-structure)
+12. [Datasets Ingested](#datasets-ingested)
+13. [Database Schema](#database-schema)
+14. [Building Footprints](#building-footprints)
+15. [Live Data State](#live-data-state)
+16. [Known Gotchas](#known-gotchas)
+17. [What Comes Next](#what-comes-next)
 
 ---
 
@@ -71,6 +73,63 @@ This is deliberate — a silent SQLite fallback would let the app boot against a
 - Python 3.10 or newer
 - PostgreSQL 16+ with PostGIS 3.x — required to run the server. Postgres.app (macOS) includes PostGIS. Run `CREATE EXTENSION IF NOT EXISTS postgis;` once in the target database, or use `migrate_to_pg.py` which does this automatically.
 - A free NYC Open Data (Socrata) API token — without it requests throttle after a few hundred rows per dataset
+
+---
+
+## For Collaborators — Getting the Latest Work
+
+The active development branch is `nr/map-integration`, not `main`. `main` reflects the last stable, deployable state; ongoing Manhattan expansion and Postgres/Supabase migration work happens on `nr/map-integration` until it's fully verified and ready to merge.
+
+To see the current work:
+
+**If you don't have the repo yet:**
+
+```bash
+git clone https://github.com/Nicolercc/carbonshift.git
+cd carbonshift
+git checkout nr/map-integration
+```
+
+**If you already have it cloned:**
+
+```bash
+git fetch origin
+git checkout nr/map-integration
+git pull origin nr/map-integration
+```
+
+From there, follow the [Installation](#installation) and [Configuration](#configuration) sections below.
+
+### Database Setup
+
+This app requires PostgreSQL 16+ with the PostGIS extension — SQLite is not supported. You have two options:
+
+**Option 1 — use the shared Supabase project (recommended for collaborators)**
+
+Ask Nicole for the `DATABASE_URL` connection string. Add it to a `.env` file at the repo root (never commit this file — it's already gitignored):
+
+```
+DATABASE_URL=postgresql://postgres.xxxxxxxx:password@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+SOCRATA_APP_TOKEN=your_token_here
+```
+
+Then run the app normally (`python web.py`). The database already has Queens and Manhattan data loaded — no ingestion needed.
+
+**Option 2 — run your own local Postgres**
+
+Install Postgres 16+ with PostGIS (Postgres.app on macOS includes it), create a database, enable the extension, and run the full pipeline:
+
+```bash
+createdb carbonshift_queens
+psql carbonshift_queens -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+
+# Point the app at your local database
+echo 'DATABASE_URL=postgresql://localhost:5432/carbonshift_queens' >> .env
+
+# Run ingestion (30–90 min) then scoring
+python run.py
+python score.py
+```
 
 ---
 

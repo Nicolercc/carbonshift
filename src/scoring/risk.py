@@ -37,6 +37,8 @@ Point-weighted algorithm:
 import sqlite3
 from datetime import datetime, timezone
 
+from psycopg2.extras import execute_values
+
 
 def _label(score: int) -> str:
     if score <= 3:   return "Low"
@@ -185,14 +187,25 @@ def run(conn: sqlite3.Connection) -> int:
         batch.append((bin_val, score, label, confidence, detail, now))
         scored += 1
 
-    conn.executemany(
+    raw_conn = conn._conn if hasattr(conn, "_conn") else conn
+    cur = raw_conn.cursor()
+    execute_values(
+        cur,
         """
-        INSERT OR REPLACE INTO building_risk_scores
+        INSERT INTO building_risk_scores
           (building_id, risk_score, risk_label, confidence_label, risk_detail, generated_at)
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES %s
+        ON CONFLICT (building_id) DO UPDATE SET
+          risk_score = EXCLUDED.risk_score,
+          risk_label = EXCLUDED.risk_label,
+          confidence_label = EXCLUDED.confidence_label,
+          risk_detail = EXCLUDED.risk_detail,
+          generated_at = EXCLUDED.generated_at
         """,
         batch,
+        page_size=2000,
     )
+    cur.close()
     conn.commit()
 
     # Print distribution

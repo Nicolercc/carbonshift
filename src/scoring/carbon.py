@@ -15,6 +15,8 @@ import sqlite3
 import statistics
 from datetime import datetime, timezone
 
+from psycopg2.extras import execute_values
+
 
 def _median(values: list[float]) -> float | None:
     clean = [v for v in values if v is not None and v > 0]
@@ -73,9 +75,6 @@ def run(conn: sqlite3.Connection) -> tuple[int, int]:
     Populate carbon_estimates for all buildings.
     Returns (measured_count, modelled_count).
     """
-    from src.db.init_db import _migrate
-    _migrate(conn)
-
     print("Building GHG intensity map from measured data …")
     class_map, borough_median = _build_intensity_map(conn)
     print(f"  Class-level medians computed for {len(class_map)} building classes")
@@ -147,16 +146,30 @@ def run(conn: sqlite3.Connection) -> tuple[int, int]:
         ))
         modelled += 1
 
-    conn.executemany(
+    raw_conn = conn._conn if hasattr(conn, "_conn") else conn
+    cur = raw_conn.cursor()
+    execute_values(
+        cur,
         """
-        INSERT OR REPLACE INTO carbon_estimates
+        INSERT INTO carbon_estimates
           (building_id, building_class, building_area, eui_source,
            site_eui, ghg_intensity, estimated_ghg_metric_tons,
            peer_building_count, generated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES %s
+        ON CONFLICT (building_id) DO UPDATE SET
+          building_class = EXCLUDED.building_class,
+          building_area = EXCLUDED.building_area,
+          eui_source = EXCLUDED.eui_source,
+          site_eui = EXCLUDED.site_eui,
+          ghg_intensity = EXCLUDED.ghg_intensity,
+          estimated_ghg_metric_tons = EXCLUDED.estimated_ghg_metric_tons,
+          peer_building_count = EXCLUDED.peer_building_count,
+          generated_at = EXCLUDED.generated_at
         """,
         batch,
+        page_size=2000,
     )
+    cur.close()
     conn.commit()
 
     print(f"Carbon estimates done: {measured:,} measured, {modelled:,} modelled, {skipped:,} skipped (no area)")

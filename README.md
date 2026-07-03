@@ -27,7 +27,7 @@ CarbonShift ingests eight NYC Open Data datasets for Queens, scores every buildi
 | Layer | Technology | Why |
 |---|---|---|
 | **Language** | Python 3.10+ | Type hints, broad ecosystem, walrus operator |
-| **Database** | SQLite (`sqlite3` stdlib) | Zero-install; schema is standard SQL — migrates to Postgres with no changes |
+| **Database** | PostgreSQL 16+ with PostGIS | Building footprint geometry requires PostGIS; SQLite is no longer supported |
 | **HTTP** | `requests` | Stable session handling, retries, header management |
 | **Config** | `python-dotenv` | Keeps secrets out of code and version control |
 | **Web framework** | `flask` 3.x | Lightweight; Jinja2 templates bundled; no build step |
@@ -46,13 +46,14 @@ CarbonShift ingests eight NYC Open Data datasets for Queens, scores every buildi
 
 **WAL journal mode.** `PRAGMA journal_mode=WAL` lets reads proceed during long write loops.
 
-**Standard SQL only.** No SQLite-specific syntax — the schema runs on Postgres with `SERIAL` in place of `INTEGER PRIMARY KEY AUTOINCREMENT`.
+**Postgres required.** The app ran on SQLite during the initial Queens pipeline build. It now requires PostgreSQL with the PostGIS extension: building footprint polygons are stored as `geometry(MultiPolygon, 4326)` columns and served via `ST_AsGeoJSON` — neither exists in SQLite. `DATABASE_URL` must be set before starting the server.
 
 ---
 
 ## Prerequisites
 
 - Python 3.10 or newer
+- PostgreSQL 16+ with PostGIS 3.x — required to run the server. Postgres.app (macOS) includes PostGIS. Run `CREATE EXTENSION IF NOT EXISTS postgis;` once in the target database, or use `migrate_to_pg.py` which does this automatically.
 - A free NYC Open Data (Socrata) API token — without it requests throttle after a few hundred rows per dataset
 
 ---
@@ -92,7 +93,7 @@ cp .env.example .env
 Edit `.env`:
 
 ```
-DB_PATH=data/carbonshift.db       # SQLite file — created automatically on first run
+DATABASE_URL=postgresql://nicolerodriguez@localhost:5432/carbonshift_queens   # Required — Postgres with PostGIS
 SOCRATA_APP_TOKEN=xxxxxxxxxxxx    # Required for full dataset pulls (see below)
 BOROUGH_CODE=4                    # Queens — do not change for this phase
 ```
@@ -407,7 +408,7 @@ Full-screen map with a filter sidebar:
 - Filter by keyword, zip, building class, year range, risk level, asbestos-only
 - **Color by**: Risk score · GHG · Year built
 - Dynamic legend updates when color mode changes
-- Loads buildings via `/api/buildings.geojson` (up to 8,000 at a time)
+- Loads buildings via `/api/buildings.geojson` (up to 8,000 at a time); each building is drawn as its **real NYC footprint outline**, not a synthetic square
 - Marker popups show address, BIN, class, year, risk, GHG, violations; link to building detail
 - Press Enter in any filter field or click Apply to reload
 
@@ -623,6 +624,48 @@ WHERE p.year_built < 1940
 GROUP BY b.bin
 ORDER BY projects DESC;
 ```
+
+---
+
+## Building Footprints
+
+Every building on the map used to appear as a small square. That square wasn't
+real — the app took the building's single centre-point coordinate (latitude/
+longitude from PLUTO) and drew a fixed-size box around it. It was enough to put
+a dot in roughly the right place, but it said nothing about the actual shape,
+size, or boundary of the building.
+
+Queens buildings now show their **real outline** — the actual polygon recorded by
+NYC's Department of City Planning when they photographed the city from the air.
+An L-shaped apartment block, a building that wraps around a courtyard, a structure
+that sits at an angle to the street — all of those are now drawn correctly. The
+most complex footprints in Queens have over 200 vertices.
+
+**Why a separate table?** The NYC Building Footprints dataset itself warns that
+BIN values (the identifier shared with every other dataset) are not guaranteed to
+be unique — some records have duplicate BINs, placeholder triangle shapes for
+buildings that couldn't be measured precisely, or unassigned "million BINs" for
+buildings never formally registered. If the footprint were stored as a single
+column directly on the `buildings` table, a duplicate BIN would silently overwrite
+the previous shape with no warning. Instead, footprints live in their own
+`building_footprints` table keyed by `doitt_id` — the footprint dataset's own
+unique record ID — so every shape is stored and none are silently dropped. When
+the map loads, it picks the largest-area footprint for each BIN, so a real
+building always wins over a placeholder triangle. (The Queens dataset loaded with
+zero duplicate BINs; the design handles future updates safely.)
+
+**PostGIS** is a Postgres extension that lets the database store geographic shapes
+and answer spatial questions about them — in this app, that means holding each
+building's polygon coordinates and converting them to GeoJSON in a single database
+call rather than doing the conversion in Python.
+
+**Coverage:** 79,171 of 79,171 Queens buildings (100%) have a real footprint
+match. Every building on the map now shows its actual outline rather than a
+synthetic square.
+
+The frontend has not yet been updated to render filled polygon outlines — the API
+now returns the correct MultiPolygon geometry, but the map layer still needs to be
+wired to draw it. That is the next frontend step.
 
 ---
 

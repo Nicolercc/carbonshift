@@ -3,6 +3,7 @@ Shared query logic used by both the CLI (query.py) and the web app.
 All functions accept a sqlite3.Connection and return plain dicts / lists.
 """
 
+import json
 import sqlite3
 
 
@@ -221,7 +222,12 @@ def buildings_geojson(
     Return a GeoJSON FeatureCollection of buildings with lat/lon.
     Used by the Leaflet map. Only includes buildings with coordinates.
     """
-    where_parts = ["b.latitude IS NOT NULL", "b.longitude IS NOT NULL"]
+    # Include buildings that have either a real footprint polygon or lat/lon
+    # coordinates. A building with a footprint but missing lat/lon is still
+    # mappable; a building with neither is not.
+    where_parts = [
+        "(bf.geom IS NOT NULL OR (b.latitude IS NOT NULL AND b.longitude IS NOT NULL))"
+    ]
     params: dict = {"limit": limit}
 
     if q:
@@ -265,11 +271,19 @@ def buildings_geojson(
                rs.risk_score, rs.risk_label,
                ce.estimated_ghg_metric_tons, ce.eui_source,
                (SELECT COUNT(*) FROM building_violations v WHERE v.building_id = b.bin) AS violation_count,
-               (SELECT COUNT(*) FROM building_violations v WHERE v.building_id = b.bin AND v.is_asbestos_related=1) AS asbestos_count
+               (SELECT COUNT(*) FROM building_violations v WHERE v.building_id = b.bin AND v.is_asbestos_related=1) AS asbestos_count,
+               ST_AsGeoJSON(bf.geom) AS geom_json
         FROM buildings b
         LEFT JOIN building_profiles bp ON bp.building_id = b.bin
         LEFT JOIN building_risk_scores rs ON rs.building_id = b.bin
         LEFT JOIN carbon_estimates ce ON ce.building_id = b.bin
+        LEFT JOIN LATERAL (
+            SELECT geom
+            FROM building_footprints
+            WHERE bin = b.bin
+            ORDER BY ST_Area(geom) DESC
+            LIMIT 1
+        ) bf ON TRUE
         {where_sql}
         ORDER BY rs.risk_score DESC NULLS LAST
         LIMIT :limit
@@ -279,12 +293,17 @@ def buildings_geojson(
 
     features = []
     for r in rows:
-        features.append({
-            "type": "Feature",
-            "geometry": {
+        geom_json = r["geom_json"]
+        if geom_json:
+            geometry = json.loads(geom_json)
+        else:
+            geometry = {
                 "type": "Point",
                 "coordinates": [r["longitude"], r["latitude"]],
-            },
+            }
+        features.append({
+            "type": "Feature",
+            "geometry": geometry,
             "properties": {
                 "bin":           r["bin"],
                 "address":       r["full_address"] or "",

@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS postgis;
+
 CREATE TABLE IF NOT EXISTS building_crosswalk (
   bin TEXT PRIMARY KEY,
   bbl TEXT,
@@ -121,3 +123,16 @@ CREATE INDEX IF NOT EXISTS idx_ap_building_id
   ON asbestos_projects(building_id);
 CREATE INDEX IF NOT EXISTS idx_ee_building_id
   ON energy_emissions(building_id);
+
+CREATE TABLE IF NOT EXISTS building_footprints (
+    doitt_id         TEXT PRIMARY KEY,
+    bin              TEXT,
+    mappluto_bbl     TEXT,
+    base_bbl         TEXT,
+    last_status_type TEXT,
+    feature_code     TEXT,
+    geom             geometry(MultiPolygon, 4326)
+);
+
+CREATE INDEX IF NOT EXISTS idx_footprints_bin  ON building_footprints (bin);
+CREATE INDEX IF NOT EXISTS idx_footprints_geom ON building_footprints USING GIST (geom);

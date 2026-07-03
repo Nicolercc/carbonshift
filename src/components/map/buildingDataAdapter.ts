@@ -1,4 +1,4 @@
-import type { Polygon } from "geojson";
+import type { MultiPolygon, Polygon } from "geojson";
 import {
   derivePrimaryDriver,
   deriveSuggestedAction,
@@ -16,35 +16,17 @@ import type {
   MapInitConfig,
 } from "./mapTypes";
 
-/** Convert a point + building area into a square footprint polygon. */
-export function pointToFootprint(
-  lng: number,
-  lat: number,
-  buildingAreaSqFt: number | null,
-): Polygon {
-  const sqFt = buildingAreaSqFt && buildingAreaSqFt > 0 ? buildingAreaSqFt : 8000;
-  const sideM = Math.sqrt(sqFt * 0.092903);
-  const clampedSideM = Math.min(Math.max(sideM, 14), 75);
-
-  const latRad = (lat * Math.PI) / 180;
-  const metersPerDegLat = 111_320;
-  const metersPerDegLng = 111_320 * Math.cos(latRad);
-
-  const halfLat = Math.max(clampedSideM / 2 / metersPerDegLat, 0.000022);
-  const halfLng = Math.max(clampedSideM / 2 / metersPerDegLng, 0.000018);
-
-  return {
-    type: "Polygon",
-    coordinates: [
-      [
-        [lng - halfLng, lat - halfLat],
-        [lng + halfLng, lat - halfLat],
-        [lng + halfLng, lat + halfLat],
-        [lng - halfLng, lat + halfLat],
-        [lng - halfLng, lat - halfLat],
-      ],
-    ],
-  };
+/** Normalize API Polygon / MultiPolygon to a single Polygon for extrusion. */
+function apiGeometryToPolygon(
+  geometry: Polygon | MultiPolygon,
+): Polygon | null {
+  if (geometry.type === "Polygon") {
+    return geometry.coordinates[0]?.length ? geometry : null;
+  }
+  const ring = geometry.coordinates[0]?.[0];
+  return ring?.length
+    ? { type: "Polygon", coordinates: geometry.coordinates[0] }
+    : null;
 }
 
 /** Estimate extrusion height from building area (API has no floor count). */
@@ -55,9 +37,9 @@ export function estimateHeightM(buildingAreaSqFt: number | null): number {
 }
 
 function normalizeApiFeature(feature: ApiBuildingFeature): BuildingFeature | null {
-  const [lng, lat] = feature.geometry.coordinates;
   const raw = feature.properties;
-  if (!raw?.bin || lng == null || lat == null) return null;
+  const footprint = apiGeometryToPolygon(feature.geometry);
+  if (!raw?.bin || !footprint) return null;
 
   const risk_label = normalizeRiskLabel(raw.risk_label);
   const buildingProps: BuildingProperties = {
@@ -84,7 +66,7 @@ function normalizeApiFeature(feature: ApiBuildingFeature): BuildingFeature | nul
 
   return {
     type: "Feature",
-    geometry: pointToFootprint(lng, lat, raw.building_area),
+    geometry: footprint,
     properties: buildingProps,
   };
 }

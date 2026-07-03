@@ -1,4 +1,4 @@
-import type { Feature, FeatureCollection, Point, Polygon } from "geojson";
+import type { Feature, FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import type { BackendRiskLabel } from "./mapConfig";
 
 /** Raw properties returned by `/api/buildings.geojson`. */
@@ -17,10 +17,10 @@ export interface ApiBuildingProperties {
   asbestos: number;
 }
 
-export type ApiBuildingFeature = Feature<Point, ApiBuildingProperties>;
+export type ApiBuildingFeature = Feature<Polygon | MultiPolygon, ApiBuildingProperties>;
 
 export type ApiBuildingFeatureCollection = FeatureCollection<
-  Point,
+  Polygon | MultiPolygon,
   ApiBuildingProperties
 >;
 

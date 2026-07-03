@@ -119,19 +119,24 @@ def get_pg_connection(dsn: str) -> "PgConn":
 
 # ── SQLite / routing ──────────────────────────────────────────────────────────
 
+def _resolve_database_dsn() -> str | None:
+    """DATABASE_URL is canonical; fall back to SUPABASE_DATABASE_URL from .env."""
+    return os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DATABASE_URL")
+
+
 def get_connection():
-    dsn = os.getenv("DATABASE_URL")
+    dsn = _resolve_database_dsn()
     if dsn:
         return get_pg_connection(dsn)
     raise RuntimeError(
         "DATABASE_URL is not set. SQLite is no longer supported — "
         "building footprints require PostGIS (Postgres). "
-        "Set DATABASE_URL=postgresql://... before starting the server."
+        "Set DATABASE_URL or SUPABASE_DATABASE_URL in .env before starting the server."
     )
 
 
 def init_db() -> None:
-    if os.getenv("DATABASE_URL"):
+    if _resolve_database_dsn():
         print("Postgres mode: schema applied via migrate_to_pg.py — skipping SQLite init.")
         return
     schema_path = Path(__file__).parent / "schema.sql"

@@ -121,6 +121,8 @@ CREATE INDEX IF NOT EXISTS idx_bp_building_id
   ON building_profiles(building_id);
 CREATE INDEX IF NOT EXISTS idx_ap_building_id
   ON asbestos_projects(building_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ap_building_control_number
+  ON asbestos_projects(building_id, control_number);
 CREATE INDEX IF NOT EXISTS idx_ee_building_id
   ON energy_emissions(building_id);
 

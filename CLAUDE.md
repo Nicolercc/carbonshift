@@ -2,6 +2,32 @@
 **Last updated:** June 26, 2026 (rev 2)
 **Purpose:** Project context file for CarbonShift. Originally written to hand off the data ingestion work; updated to reflect the current completed state of the pipeline, scoring, and web UI.
 
+## Start Here For Current Product Direction
+
+This file contains important backend/data context, but it is no longer the only project entrypoint.
+
+Before planning frontend or product work, read:
+
+- `docs/README.md`
+- `docs/product-direction.md`
+- `docs/frontend-implementation-plan.md`
+- `docs/api-contracts.md`
+- `docs/backend-context.md`
+
+Current product direction:
+
+> CarbonShift should become a visual-first civic climate intelligence tool. Bigger map. Less text. More visual explanation.
+
+Architecture direction:
+
+```txt
+Next.js frontend
+  -> Flask JSON API
+    -> Postgres/PostGIS/Supabase
+```
+
+Do not replace Flask for the MVP. Flask should remain the data API while the frontend becomes a modern map-first product surface.
+
 ---
 
 ## SECTION A — Project Brief

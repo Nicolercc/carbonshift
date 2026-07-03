@@ -2,6 +2,8 @@
 
 CarbonShift ingests NYC Open Data building records for Queens and Manhattan, scores every building for carbon emissions and risk, and provides four ways to access the results: an ingestion pipeline, a scoring pipeline, a command-line query tool, and a browser-based web interface with interactive charts, a MapLibre map with real building footprints, advanced filters, and CSV export.
 
+**Current product/frontend direction:** see [`docs/README.md`](docs/README.md). The next MVP direction is a map-first civic climate intelligence product with Flask as the JSON data API and a future Next.js frontend as the presentation layer.
+
 **Scope note:** Manhattan ingestion for buildings, violations, footprints, and asbestos projects is complete and live in the local Postgres database. Manhattan energy/emissions (LL84/97) has **not** been ingested yet — see [Datasets Ingested](#datasets-ingested) and [What Comes Next](#what-comes-next). The frontend (map viewport, page copy) is still Queens-only in several places — see [What Comes Next](#what-comes-next).
 
 ---

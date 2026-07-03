@@ -9,8 +9,8 @@ Note: ACP-5 has no bulk API — not ingested here (see CLAUDE.md Section H).
 """
 
 import sqlite3
-from datetime import datetime, timezone
 
+from psycopg2.extras import execute_values
 from .socrata import paginate, sample
 
 
@@ -31,11 +31,14 @@ def run(conn: sqlite3.Connection) -> int:
         for r in conn.execute("SELECT bbl, bin FROM buildings WHERE bbl IS NOT NULL")
     }
 
-    now = datetime.now(timezone.utc).isoformat()
-    inserted = 0
+    loaded = conn.execute("SELECT COUNT(*) FROM asbestos_projects WHERE building_id LIKE '4%'").fetchone()[0]
 
     print("Ingesting ACP-7 (BIN prefix '4') …")
-    for page in paginate(DATASET_ID, where="bin >= '4000000' AND bin < '5000000'"):
+    for page in paginate(
+        DATASET_ID,
+        where="bin >= '4000000' AND bin < '5000000'",
+        order=":id",
+    ):
         batch = []
         for r in page:
             bin_val = str(r.get("bin", "") or "").strip()
@@ -58,18 +61,24 @@ def run(conn: sqlite3.Connection) -> int:
                 str(r.get("air_monitor_name", "") or ""),
             ))
 
-        conn.executemany(
-            """
-            INSERT INTO asbestos_projects
-              (building_id, control_number, project_status, project_start_date,
-               project_end_date, contractor_name, air_monitor_name)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            batch,
-        )
-        conn.commit()
-        inserted += len(batch)
-        print(f"  … {inserted:,} ACP-7 projects inserted")
+        if batch:
+            cur = conn._conn.cursor() if hasattr(conn, "_conn") else conn.cursor()
+            execute_values(
+                cur,
+                """
+                INSERT INTO asbestos_projects
+                  (building_id, control_number, project_status, project_start_date,
+                   project_end_date, contractor_name, air_monitor_name)
+                VALUES %s
+                ON CONFLICT (building_id, control_number) DO NOTHING
+                """,
+                batch,
+                page_size=2000,
+            )
+            cur.close()
+            conn.commit()
+        loaded = conn.execute("SELECT COUNT(*) FROM asbestos_projects WHERE building_id LIKE '4%'").fetchone()[0]
+        print(f"  … {loaded:,} ACP-7 projects loaded")
 
-    print(f"ACP-7 done: {inserted:,} projects inserted")
-    return inserted
+    print(f"ACP-7 done: {loaded:,} projects loaded")
+    return loaded

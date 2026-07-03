@@ -20,7 +20,12 @@ def _headers() -> dict:
     return {"X-App-Token": token} if token else {}
 
 
-def paginate(dataset_id: str, where: str = "", select: str = "") -> Generator[list[dict], None, None]:
+def paginate(
+    dataset_id: str,
+    where: str = "",
+    select: str = "",
+    order: str = "",
+) -> Generator[list[dict], None, None]:
     """Yield pages of records from a Socrata dataset."""
     offset = 0
     session = requests.Session()
@@ -32,6 +37,8 @@ def paginate(dataset_id: str, where: str = "", select: str = "") -> Generator[li
             params["$where"] = where
         if select:
             params["$select"] = select
+        if order:
+            params["$order"] = order
 
         for attempt in range(1, MAX_RETRIES + 1):
             try:

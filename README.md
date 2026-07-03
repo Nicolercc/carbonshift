@@ -400,7 +400,7 @@ Six tabs — the first five are Chart.js analytics; the sixth is the full intera
 | **Energy & Emissions** | Top 20 GHG emitters · Energy Star distribution · GHG by class |
 | **Violations** | Filed per year by agency with **linear ↔ log** and **line ↔ bar** toggles |
 | **Asbestos** | Projects by status (donut) · Data notes |
-| **🗺 Map** | Full Queens map with all buildings, **Color by** toggle (Risk / GHG / Age), **Filter risk** buttons (Low / Moderate / High / Critical), MarkerCluster for performance |
+| **🗺 Map** | Queens map covering all buildings in the database, **Color by** toggle (Risk / GHG / Age), **Filter risk** buttons (Low / Moderate / High / Critical), MarkerCluster for performance |
 
 #### Standalone Map — `/map`
 
@@ -659,9 +659,16 @@ and answer spatial questions about them — in this app, that means holding each
 building's polygon coordinates and converting them to GeoJSON in a single database
 call rather than doing the conversion in Python.
 
-**Coverage:** 79,171 of 79,171 Queens buildings (100%) have a real footprint
-match. Every building on the map now shows its actual outline rather than a
-synthetic square.
+**Coverage:** All 79,171 buildings in the database have a real footprint match —
+no building on the map falls back to a synthetic square. The 79,171 figure is
+the PLUTO tax-lot universe: every Queens parcel with recorded building area.
+That is the right scope for this app. LL84/97 energy reporting and carbon risk
+scoring are assessed at the tax-lot level — a multi-unit building and the parcel
+it sits on share one energy meter, one compliance obligation, and one risk score.
+The NYC ArcGIS building source maps approximately 334,536 distinct physical
+structures in Queens, but many of those share a tax lot and therefore a single
+compliance record. This app measures lot-level carbon exposure, which is what
+LL84/97 compliance actually tracks.
 
 The frontend has not yet been updated to render filled polygon outlines — the API
 now returns the correct MultiPolygon geometry, but the map layer still needs to be

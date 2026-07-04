@@ -109,6 +109,18 @@ def main() -> int:
         if signal_keys != SIGNAL_GROUPS:
             _fail(f"/api/buildings/{bin_val} signals were {sorted(signal_keys)}")
 
+        known_bin = "1063355"
+        known_detail = client.get(f"/api/buildings/{known_bin}?limit=5")
+        known_json = _json(known_detail, f"/api/buildings/{known_bin}")
+        if known_detail.status_code == 404:
+            print(f"SKIP: known BIN {known_bin} not in database")
+        elif known_detail.status_code != 200:
+            _fail(f"/api/buildings/{known_bin} returned {known_detail.status_code}")
+        else:
+            known_signals = set((known_json.get("signals") or {}).keys())
+            if known_signals != SIGNAL_GROUPS:
+                _fail(f"/api/buildings/{known_bin} signals were {sorted(known_signals)}")
+
         baseline = client.get(f"/building/{bin_val}/export.csv")
         if baseline.status_code != 200:
             _fail(f"baseline export returned {baseline.status_code}")

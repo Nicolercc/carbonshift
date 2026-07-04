@@ -1,5 +1,7 @@
 # Status & Handoff — Phase 1 API hardening (July 4, 2026)
 
+**Merge readiness:** Phase 1 API hardening is complete on `nr/map-integration`. Live Supabase-backed smoke checks pass (`python scripts/smoke_api.py`, `npm run typecheck`). No `/frontend` Next.js app exists yet; Phase 2 has not started. The existing Vite/React/MapLibre map island at `/map` remains the current UI.
+
 ## Latest Phase 1 hardening
 
 The Flask API is now hardened for pre-merge review without starting Phase 2

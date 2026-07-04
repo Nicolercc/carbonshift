@@ -6,6 +6,8 @@ CarbonShift ingests NYC Open Data building records for Queens and Manhattan, sco
 
 **Scope note:** Manhattan ingestion for buildings, violations, footprints, and asbestos projects is complete and live in the local Postgres database. Manhattan energy/emissions (LL84/97) has **not** been ingested yet — see [Datasets Ingested](#datasets-ingested) and [What Comes Next](#what-comes-next). The frontend (map viewport, page copy) is still Queens-only in several places — see [What Comes Next](#what-comes-next).
 
+**Phase 1 status (July 2026):** Flask JSON API hardening on `nr/map-integration` is complete — parameterized CSV export, JSON `/api/*` error responses, CORS configuration, and `scripts/smoke_api.py` all pass against the live Supabase-backed database. Phase 1 does **not** include a Next.js frontend. The current map UI is a Vite/React/MapLibre island inside Flask (`/map`) and is reusable as a reference for Phase 2. **Phase 2 (standalone Next.js app) has not started.**
+
 ---
 
 ## Table of Contents
@@ -179,7 +181,10 @@ Edit `.env`:
 DATABASE_URL=postgresql://nicolerodriguez@localhost:5432/carbonshift_queens   # Required — Postgres with PostGIS
 SOCRATA_APP_TOKEN=xxxxxxxxxxxx    # Required for full dataset pulls (see below)
 BOROUGH_CODE=4                    # Queens — Manhattan uses code 1; see Datasets Ingested
+CORS_ALLOWED_ORIGINS=http://localhost:3000   # Comma-separated frontend origins; required in production
 ```
+
+`CORS_ALLOWED_ORIGINS` controls which browser origins may call the Flask JSON API. Local development allows `http://localhost:3000` and `http://localhost:5173` by default when this variable is unset and `FLASK_ENV` is not `production`. In production, set this to the actual deployed frontend origin (for example `https://carbonshift.example.com`), not `*`.
 
 **Known gap:** `.env.example` itself still shows the old `DB_PATH=data/carbonshift.db` / SQLite-era template, not `DATABASE_URL`. It has not been updated to match. Use the block above, not the template file, until `.env.example` is fixed.
 

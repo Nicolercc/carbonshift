@@ -79,6 +79,8 @@ Built in this phase:
 - Building detail endpoint
 - Existing GeoJSON endpoint kept stable
 - API contracts documented
+- API-scoped JSON error responses for 404, 503, and unexpected 500s
+- Building CSV export SQL-injection regression fixed and covered by a smoke check
 
 API endpoints:
 
@@ -101,6 +103,8 @@ Acceptance criteria:
 - `/api/stats/summary` returns compact summary metrics.
 - `/api/data-health` returns table/readiness counts.
 - CORS allows local Next.js/Vite dev origins by default and production origins through `CORS_ALLOWED_ORIGINS`.
+- `/api/*` error responses are JSON while existing Flask/Jinja pages may keep HTML behavior.
+- `python scripts/smoke_api.py` passes when the configured database is available.
 
 Verification commands:
 
@@ -118,6 +122,7 @@ curl http://127.0.0.1:5050/api/stats/summary
 curl http://127.0.0.1:5050/api/data-health
 curl "http://127.0.0.1:5050/api/buildings/search?q=Queens&limit=5"
 curl "http://127.0.0.1:5050/api/buildings.geojson?limit=5"
+python scripts/smoke_api.py
 ```
 
 To test a real building detail endpoint:
@@ -417,4 +422,3 @@ What should happen next:
 3. Port the existing MapLibre map logic.
 4. Build the four-signal detail panel against real API responses.
 5. Move methodology and raw evidence into secondary views.
-

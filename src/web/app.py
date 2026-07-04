@@ -157,6 +157,32 @@ def _filter_args():
     }
 
 
+def _is_api_request() -> bool:
+    return request.path == "/api" or request.path.startswith("/api/")
+
+
+@app.errorhandler(404)
+def handle_not_found(error):
+    if _is_api_request():
+        return jsonify({"ok": False, "error": "Not found"}), 404
+    return error
+
+
+@app.errorhandler(503)
+def handle_service_unavailable(error):
+    if _is_api_request():
+        return jsonify({"ok": False, "error": "Service unavailable"}), 503
+    return error
+
+
+@app.errorhandler(500)
+def handle_internal_error(error):
+    if _is_api_request():
+        app.logger.error("Unhandled API error: %s", error)
+        return jsonify({"ok": False, "error": "Internal server error"}), 500
+    return error
+
+
 # ── pages ─────────────────────────────────────────────────────────────────────
 
 @app.route("/")
@@ -559,7 +585,8 @@ def export_custom_csv():
 def export_building_csv(bin_val):
     conn = _conn()
     try:
-        _, rows = run_sql(conn, f"""
+        cursor = conn.execute(
+            """
             SELECT b.bin, b.bbl, b.full_address, b.zip_code,
                    bp.year_built, bp.building_class, bp.land_use,
                    bp.residential_units, bp.total_units,
@@ -573,8 +600,11 @@ def export_building_csv(bin_val):
             LEFT JOIN building_profiles bp ON bp.building_id = b.bin
             LEFT JOIN building_risk_scores rs ON rs.building_id = b.bin
             LEFT JOIN carbon_estimates ce ON ce.building_id = b.bin
-            WHERE b.bin = '{bin_val}'
-        """)
+            WHERE b.bin = ?
+            """,
+            (bin_val,),
+        )
+        rows = [dict(r) for r in cursor.fetchall()]
     except Exception as e:
         flash(str(e), "danger")
         conn.close()

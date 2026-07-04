@@ -1,4 +1,34 @@
-# Status & Handoff — DATABASE_URL fallback fix (July 3, 2026)
+# Status & Handoff — Phase 1 API hardening (July 4, 2026)
+
+## Latest Phase 1 hardening
+
+The Flask API is now hardened for pre-merge review without starting Phase 2
+or scaffolding Next.js.
+
+Changes made:
+
+- `/building/<bin>/export.csv` now uses a parameterized query for the BIN
+  filter instead of interpolating the route parameter into SQL.
+- `/api/*` routes now return JSON for 404, 503, and unexpected 500 errors.
+  Non-API Flask/Jinja pages retain HTML behavior.
+- Environment-driven CORS remains in place. Local dev origins are allowed by
+  default outside production, and `CORS_ALLOWED_ORIGINS` is the explicit
+  production configuration path. Wildcard CORS is not honored in production.
+- `scripts/smoke_api.py` adds lightweight in-process API smoke checks for
+  health JSON, JSON 404s, DB-backed search/detail payloads, the five signal
+  groups, and the building CSV SQL-injection regression.
+
+Recommended verification:
+
+```bash
+npm run typecheck
+python -m py_compile src/web/app.py scripts/smoke_api.py
+python scripts/smoke_api.py
+CORS_ALLOWED_ORIGINS=http://localhost:3000 python -c "from src.web.app import app; c=app.test_client(); r=c.get('/api/health', headers={'Origin':'http://localhost:3000'}); print(r.status_code); print(r.headers.get('Access-Control-Allow-Origin')); print(r.content_type)"
+git diff --check
+```
+
+## Previous DATABASE_URL fallback fix
 
 ## What was broken
 
@@ -53,13 +83,12 @@ or a manual override pointing at local Postgres instead of Supabase).
 `SUPABASE_DATABASE_URL` is only used as a fallback when `DATABASE_URL`
 is absent from the environment.
 
-**Caveat carried over from `handoff.md`:** Supabase is known to be
-stale relative to the local `carbonshift_queens` Postgres database (old
-Queens-only data, missing the `asbestos_projects` dedup fix). This fix
-makes the server *start reliably* against whichever DSN is available —
-it does not change which database is the source of truth. See
-`handoff.md` section 1 and 3 for the Supabase/local divergence, which is
-still unresolved.
+**Database freshness note:** older handoff notes described Supabase as stale
+relative to local Postgres. Recent API smoke checks through the configured
+fallback DSN returned the two-borough counts documented in `README.md`, so do
+not assume the old Queens-only Supabase warning is still current. Before
+deploying or merging ingestion changes, verify the target database with direct
+row-count queries instead of trusting either this document or `handoff.md`.
 
 ## Verification
 

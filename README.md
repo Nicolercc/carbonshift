@@ -24,9 +24,10 @@ CarbonShift ingests NYC Open Data building records for Queens and Manhattan, sco
 12. [Datasets Ingested](#datasets-ingested)
 13. [Database Schema](#database-schema)
 14. [Building Footprints](#building-footprints)
-15. [Live Data State](#live-data-state)
-16. [Known Gotchas](#known-gotchas)
-17. [What Comes Next](#what-comes-next)
+15. [API Hardening Smoke Checks](#api-hardening-smoke-checks)
+16. [Live Data State](#live-data-state)
+17. [Known Gotchas](#known-gotchas)
+18. [What Comes Next](#what-comes-next)
 
 ---
 
@@ -48,12 +49,12 @@ CarbonShift ingests NYC Open Data building records for Queens and Manhattan, sco
 
 The project was originally built and validated on SQLite (see [Live Data State](#live-data-state) for why that's now historical). It moved to PostgreSQL 16+ with PostGIS for one concrete reason: **building footprint polygons**. Real building outlines are stored as `geometry(MultiPolygon, 4326)` columns and served to the map via `ST_AsGeoJSON` — neither the PostGIS type nor that function exists in SQLite. Once footprints needed real geometry, SQLite was no longer an option for any part of the schema, not just the footprints table.
 
-**SQLite is no longer supported at all — not as a fallback.** `get_connection()` in `src/db/init_db.py` raises immediately if `DATABASE_URL` is unset:
+**SQLite is no longer supported at all — not as a fallback.** `get_connection()` in `src/db/init_db.py` resolves a Postgres DSN from `DATABASE_URL` first, then falls back to `SUPABASE_DATABASE_URL` if `DATABASE_URL` is unset. It raises immediately only when neither Postgres variable is configured:
 
 ```
 RuntimeError: DATABASE_URL is not set. SQLite is no longer supported —
 building footprints require PostGIS (Postgres).
-Set DATABASE_URL=postgresql://... before starting the server.
+Set DATABASE_URL or SUPABASE_DATABASE_URL in .env before starting the server.
 ```
 
 This is deliberate — a silent SQLite fallback would let the app boot against a schema that can't hold footprint geometry, and the map would fail confusingly downstream instead of failing loudly at startup.
@@ -65,6 +66,10 @@ This is deliberate — a silent SQLite fallback would let the app boot against a
 **One `building_violations` table.** HPD, DOB Safety, DOB Legacy, and DOB ECB violations all go into a single source-tagged table. This keeps "all violations for building X" queries simple and lets the asbestos keyword scan run once across all agencies.
 
 **Shared query module.** `src/query/` is used by both `query.py` (CLI) and the Flask web app, so changes to lookup or export logic apply everywhere.
+
+**API routes return API errors.** `/api/*` routes return JSON for not found, service unavailable, and unexpected server errors. Flask/Jinja pages keep their normal HTML error behavior.
+
+**CORS stays explicit.** Local development allows the known Next.js/Vite origins by default. Production deployments must set `CORS_ALLOWED_ORIGINS`; wildcard CORS is not honored in production.
 
 **Standard SQL only, with one caveat.** The original design goal — SQLite-compatible standard SQL that migrates cleanly to Postgres — held until PostGIS became a requirement. `schema_pg.sql` is now the source of truth for the schema; `src/db/schema.sql` (SQLite DDL) is retained for historical reference only and is not applied by any code path when `DATABASE_URL` is set.
 
@@ -205,6 +210,29 @@ python query.py search "Jamaica"
 # 5. Launch the web interface
 python web.py
 # → open http://localhost:5050
+```
+
+## API Hardening Smoke Checks
+
+Run the lightweight smoke checks before merging backend/API changes:
+
+```bash
+source venv/bin/activate
+python scripts/smoke_api.py
+```
+
+The script uses Flask's in-process test client. It verifies `/api/health` returns JSON, `/api/nope` returns a JSON 404, DB-backed search/detail endpoints return the expected JSON shape when the database is available, and the building CSV export rejects a SQL-injection payload instead of returning all buildings.
+
+CORS is controlled by `CORS_ALLOWED_ORIGINS`:
+
+```bash
+CORS_ALLOWED_ORIGINS=http://localhost:3000 python -c "from src.web.app import app; c=app.test_client(); r=c.get('/api/health', headers={'Origin':'http://localhost:3000'}); print(r.headers.get('Access-Control-Allow-Origin'))"
+```
+
+Expected output:
+
+```txt
+http://localhost:3000
 ```
 
 ---
@@ -767,20 +795,20 @@ call rather than doing the conversion in Python.
 
 The `uq_acp7_building_cn` unique constraint is present and enforced here. Manhattan risk and carbon scores show real, non-zero, non-uniform violation and asbestos signal — Manhattan's violation count (2.78M) is roughly 6x Queens's despite having about half the buildings, driven by a much larger HPD housing-violation history; this is a real reflection of the underlying data, not a scoring artifact.
 
-### Supabase (`SUPABASE_DATABASE_URL`) — stale
+### Supabase (`SUPABASE_DATABASE_URL`) — deploy fallback
 
-Supabase currently reflects the **old, pre-Manhattan, pre-fix state**:
+`DATABASE_URL` remains the canonical database setting for local Postgres, CI, and production overrides. If `DATABASE_URL` is unset, the app falls back to `SUPABASE_DATABASE_URL` from `.env`. This lets `python web.py` start cleanly in a fresh shell when only the shared Supabase DSN is present.
 
-| Metric | Value on Supabase |
-|---|---|
-| Buildings | 79,171 (Queens only — no Manhattan rows) |
-| Violations | 460,927 (Queens only) |
-| Asbestos projects | 13,009 total rows, only 4,237 distinct pairs — **still duplicated, constraint not present** |
-| Risk scores | 79,171 (Queens only) |
-| Carbon estimates | 78,793 (Queens only) |
-| Building footprints | 86,677 (Queens only) |
+Recent API smoke checks against the configured fallback DSN returned the two-borough dataset counts shown above (`118,904` buildings, `3,244,214` violations, `27,746` asbestos projects, `118,526` carbon estimates, and `131,284` building footprints). Still verify the target database before deploying or merging major ingestion changes:
 
-`migrate_to_supabase.py` (source: local `DATABASE_URL` → destination: `SUPABASE_DATABASE_URL`) exists in the repo but has not been re-run since Manhattan ingestion or the ACP-7 dedup fix landed locally. Anyone pointing the deployed app at Supabase today gets the old Queens-only, duplicate-asbestos dataset. Note also that `.env` in this repo currently defines `SUPABASE_DATABASE_URL` but not `DATABASE_URL` — the app as configured will refuse to start (`DATABASE_URL is not set`) until one is exported pointing at either the local Postgres instance or Supabase directly.
+```bash
+set -a; source .env; set +a
+psql "$SUPABASE_DATABASE_URL" -c "SELECT left(bin,1) boro, count(*) FROM buildings GROUP BY 1 ORDER BY 1;"
+psql "$SUPABASE_DATABASE_URL" -c "SELECT left(building_id,1) boro, count(*) FROM building_violations GROUP BY 1 ORDER BY 1;"
+psql "$SUPABASE_DATABASE_URL" -c "SELECT COUNT(*) total, COUNT(DISTINCT (building_id, control_number)) distinct_pairs FROM asbestos_projects;"
+```
+
+`migrate_to_supabase.py` remains the local-Postgres-to-Supabase copy path when local Postgres is ahead of the shared Supabase database.
 
 ---
 
@@ -821,7 +849,7 @@ Supabase currently reflects the **old, pre-Manhattan, pre-fix state**:
 - **Frontend still has hardcoded Queens-only viewport and copy** — genuinely unfinished, not a documentation gap:
   - `src/components/map/mapConfig.ts` exports `queensBounds`, used for the map's default `fitBounds` — Manhattan buildings are off-screen until a user manually pans/zooms there.
   - Page copy in `base.html`, `index.html`, `map.html`, `charts.html`, and map components (`buildingInsights.ts`, `buildingDataAdapter.ts`, `BuildingInsightCard.tsx`) still reads "Queens Building Carbon Intelligence," "Queens · NYC Open Data," "Queens-wide median," etc.
-- **Supabase migration is stale** — `migrate_to_supabase.py` needs to be re-run against the current local Postgres state to bring Supabase's schema and data (Manhattan rows, the `uq_acp7_building_cn` constraint, deduplicated `asbestos_projects`) up to date. Until then, Supabase reflects the old Queens-only, duplicate-asbestos state described in [Live Data State](#live-data-state).
+- **Verify Supabase before deploy** — recent smoke checks through `SUPABASE_DATABASE_URL` returned the two-borough counts in [Live Data State](#live-data-state), but ingestion work can still make local Postgres and Supabase diverge. Run the Supabase row-count checks above before treating the shared database as deploy-ready.
 - **`.env.example` is stale** — still shows the SQLite-era `DB_PATH` template instead of the required `DATABASE_URL`.
 - ACP-5 portal lookups (no bulk API exists — portal-only at `a826-web01.nyc.gov`)
 - Con Edison utility data integration

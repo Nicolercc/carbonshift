@@ -37,6 +37,10 @@ if not _secret:
     _secret = "carbonshift-dev"
 app.secret_key = _secret
 
+# Presentation demo defaults — keep in sync with src/components/map/mapConfig.ts
+DEMO_BIN = "1063355"
+MAP_GEOJSON_DEFAULT_LIMIT = 2000
+
 
 def _configured_cors_origins() -> set[str]:
     """Return explicit frontend origins allowed to call the JSON API."""
@@ -329,7 +333,8 @@ def map_view():
         "year_max": filters["year_max"],
         "risk": filters["risk_label"],
         "asbestos": filters["has_asbestos"],
-        "limit": 8000,
+        "limit": _int_or_none(request.args.get("limit")) or MAP_GEOJSON_DEFAULT_LIMIT,
+        "demo_bin": DEMO_BIN,
     }
     conn = _conn()
     try:
@@ -492,7 +497,7 @@ def api_building_detail(bin_val):
 @app.route("/api/buildings.geojson")
 def api_buildings_geojson():
     q = request.args.get("q", "").strip()
-    limit = _limit_arg(default=5000, maximum=10000)
+    limit = _limit_arg(default=MAP_GEOJSON_DEFAULT_LIMIT, maximum=10000)
     zip_code       = request.args.get("zip", "").strip()
     building_class = request.args.get("class", "").strip()
     year_min       = _int_or_none(request.args.get("year_min"))

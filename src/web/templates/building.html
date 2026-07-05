@@ -63,9 +63,11 @@
         {% if bldg.eui_source == 'measured' %}
           <span class="badge bg-success ms-1">measured</span>
         {% elif bldg.eui_source == 'class_median' %}
-          <span class="badge bg-secondary ms-1">modelled</span>
+          <span class="badge bg-warning text-dark ms-1">class median</span>
+        {% elif bldg.eui_source == 'borough_median' %}
+          <span class="badge bg-secondary ms-1">borough median</span>
         {% else %}
-          <span class="badge bg-light text-dark border ms-1">est.</span>
+          <span class="badge bg-light text-dark border ms-1">source unavailable</span>
         {% endif %}
       </div>
       <div class="display-6 {% if bldg.estimated_ghg_metric_tons|float > 2000 %}text-danger{% else %}text-dark{% endif %}">
@@ -235,6 +237,7 @@
     </div>
   </div>
   {% if violations %}
+  {% set violation_cap = 5 %}
   <div class="table-responsive">
     <table class="table table-sm table-hover mb-0" id="vTable">
       <thead>
@@ -252,7 +255,7 @@
         </tr>
       </thead>
       <tbody>
-        {% for v in violations %}
+        {% for v in violations[:violation_cap] %}
         <tr {% if v.is_asbestos_related %}class="violation-row-asbestos"{% endif %}>
           <td><span class="badge bg-secondary">{{ v.source_dataset }}</span></td>
           <td class="text-nowrap">{{ (v.issue_date or "")[:10] }}</td>
@@ -281,6 +284,14 @@
       </tbody>
     </table>
   </div>
+  {% if violations|length > violation_cap %}
+  <div class="card-body py-2 border-top">
+    <p class="small text-muted mb-0">
+      Showing {{ violation_cap }} of {{ violations|length }} violations.
+      <a href="/building/{{ bldg.bin }}">Open full profile</a> for complete history.
+    </p>
+  </div>
+  {% endif %}
   {% else %}
   <div class="card-body text-muted small">No violations on record.</div>
   {% endif %}

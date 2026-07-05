@@ -2,127 +2,151 @@
 {% block title %}Explore Map — CarbonShift{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-  <div>
-    <h5 class="mb-0"><i class="bi bi-map me-2"></i>Explore Map</h5>
-    <p class="text-muted small mb-0">Queens building carbon intelligence — click a building for emissions confidence and risk.</p>
-  </div>
-</div>
-<div class="row g-3 mb-3">
-  <div class="col-lg-3">
-    <!-- Emissions confidence — visible before exploring the map -->
-    <div class="card mb-2">
-      <div class="card-header py-2">
-        <i class="bi bi-shield-check me-2"></i>Emissions confidence
-      </div>
+<script>document.body.classList.add("map-page");</script>
+<style>
+  .map-page footer { display: none; }
+  .map-page .container { max-width: 100%; padding: 0 10px 10px; }
+  .map-page .navbar { margin-bottom: 0 !important; }
+  .map-page-shell { display: flex; gap: 10px; min-height: calc(100vh - 58px); }
+  .map-sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 8px;
+  }
+  .map-stage {
+    flex: 1;
+    min-width: 0;
+    padding-top: 8px;
+  }
+  #carbon-map-root {
+    height: calc(100vh - 68px);
+    min-height: 680px;
+    border-radius: 12px;
+    border: 1px solid var(--cs-card-border);
+    overflow: hidden;
+    background: #0a0c10;
+    box-shadow: 0 12px 40px rgba(0,0,0,.18);
+  }
+  .map-signal-key {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .map-signal-key span {
+    font-size: .68rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--cs-section-color);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .map-signal-key i { color: #198754; font-size: .75rem; }
+  .confidence-compact {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 8px;
+  }
+  .confidence-pill {
+    font-size: .68rem;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: rgba(0,0,0,.04);
+    border: 1px solid var(--cs-card-border);
+  }
+  [data-bs-theme="dark"] .confidence-pill { background: rgba(255,255,255,.04); }
+  .map-sidebar .card-header {
+    font-size: .72rem;
+    padding: .5rem .75rem;
+  }
+  .map-sidebar .form-label {
+    font-size: .7rem;
+    margin-bottom: .2rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--cs-section-color);
+  }
+  .map-demo-hint {
+    font-size: .68rem;
+    color: var(--cs-section-color);
+    line-height: 1.4;
+    margin: 0;
+  }
+  @media (max-width: 991px) {
+    .map-page-shell { flex-direction: column; }
+    .map-sidebar { width: 100%; }
+    #carbon-map-root { height: 72vh; min-height: 480px; }
+  }
+</style>
+
+<div class="map-page-shell">
+  <aside class="map-sidebar">
+    <div class="map-signal-key" aria-label="Map signals">
+      <span><i class="bi bi-shield-exclamation"></i>Risk</span>
+      <span><i class="bi bi-cloud-haze2"></i>Carbon</span>
+      <span><i class="bi bi-clipboard-check"></i>Compliance</span>
+      <span><i class="bi bi-exclamation-triangle"></i>Asbestos</span>
+    </div>
+    <div class="card">
+      <div class="card-header py-2"><i class="bi bi-funnel me-1"></i>Filters</div>
       <div class="card-body py-2">
-        {% if confidence.total == 0 %}
-        <div class="alert alert-warning py-2 px-2 small mb-0">
-          <i class="bi bi-exclamation-triangle me-1"></i>
-          Scoring has not been run yet. Run <code>python score.py</code> to populate confidence labels.
+        {% if confidence.total > 0 %}
+        <div class="confidence-compact">
+          <span class="confidence-pill"><strong>{{ "{:,}".format(confidence.measured) }}</strong> measured</span>
+          <span class="confidence-pill"><strong>{{ "{:,}".format(confidence.class_median) }}</strong> class</span>
+          <span class="confidence-pill"><strong>{{ "{:,}".format(confidence.borough_median) }}</strong> borough</span>
         </div>
-        {% else %}
-        <p class="small text-muted mb-2 mb-md-3" style="line-height:1.45">
-          CarbonShift labels confidence so modeled estimates are not treated like measured disclosures.
-        </p>
-        <ul class="list-unstyled small mb-2 confidence-list">
-          <li class="confidence-row">
-            <span class="confidence-dot" style="background:#198754"></span>
-            <div>
-              <strong class="confidence-count">{{ "{:,}".format(confidence.measured) }}</strong>
-              <span class="text-muted">Measured LL84/97</span>
-              <div class="text-muted" style="font-size:.78rem">Actual disclosure record on file.</div>
-            </div>
-          </li>
-          <li class="confidence-row">
-            <span class="confidence-dot" style="background:#ffc107"></span>
-            <div>
-              <strong class="confidence-count">{{ "{:,}".format(confidence.class_median) }}</strong>
-              <span class="text-muted">Similar buildings</span>
-              <div class="text-muted" style="font-size:.78rem">Modeled from peer building class.</div>
-            </div>
-          </li>
-          <li class="confidence-row mb-0">
-            <span class="confidence-dot" style="background:#adb5bd"></span>
-            <div>
-              <strong class="confidence-count">{{ "{:,}".format(confidence.borough_median) }}</strong>
-              <span class="text-muted">Borough fallback</span>
-              <div class="text-muted" style="font-size:.78rem">Lower-confidence Queens-wide estimate.</div>
-            </div>
-          </li>
-        </ul>
-        <p class="text-muted mb-0" style="font-size:.75rem">
-          {{ "{:,}".format(confidence.total) }} buildings scored ·
-          <a href="/methodology">How this works</a>
-        </p>
         {% endif %}
-      </div>
-    </div>
-
-    <form method="get" action="/map" class="card">
-      <div class="card-header"><i class="bi bi-funnel me-2"></i>Filters</div>
-      <div class="card-body">
-        <div class="mb-2">
-          <label class="form-label small fw-semibold" for="fSearch">Address / BIN / Zip</label>
-          <input id="fSearch" name="q" class="form-control form-control-sm" placeholder="e.g. Jamaica, 11101"
-                 value="{{ q }}">
-        </div>
-        <div class="mb-2">
-          <label class="form-label small fw-semibold" for="fZip">Zip Code</label>
-          <input id="fZip" name="zip" class="form-control form-control-sm" placeholder="11101"
-                 value="{{ filters.zip_code }}">
-        </div>
-        <div class="mb-2">
-          <label class="form-label small fw-semibold" for="fClass">Building Class</label>
-          <input id="fClass" name="class" class="form-control form-control-sm" placeholder="e.g. D, R, A"
-                 value="{{ filters.building_class }}">
-        </div>
-        <div class="mb-2">
-          <label class="form-label small fw-semibold">Year Built</label>
-          <div class="d-flex gap-1">
-            <input id="fYearMin" name="year_min" class="form-control form-control-sm" placeholder="From"
-                   value="{{ filters.year_min or '' }}">
-            <input id="fYearMax" name="year_max" class="form-control form-control-sm" placeholder="To"
-                   value="{{ filters.year_max or '' }}">
+        <form method="get" action="/map">
+          <div class="mb-2">
+            <label class="form-label" for="fSearch">Search</label>
+            <input id="fSearch" name="q" class="form-control form-control-sm" placeholder="Address, BIN, zip"
+                   value="{{ q }}">
           </div>
-        </div>
-        <div class="mb-2">
-          <label class="form-label small fw-semibold" for="fRisk">Risk Level</label>
-          <select id="fRisk" name="risk" class="form-select form-select-sm">
-            <option value="">All</option>
-            <option value="Low" {% if filters.risk_label=='Low' %}selected{% endif %}>Low</option>
-            <option value="Moderate" {% if filters.risk_label=='Moderate' %}selected{% endif %}>Moderate</option>
-            <option value="High" {% if filters.risk_label=='High' %}selected{% endif %}>High</option>
-            <option value="Critical" {% if filters.risk_label=='Critical' %}selected{% endif %}>Critical</option>
-          </select>
-        </div>
-        <div class="mb-3">
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="fAsbestos" name="asbestos" value="1"
-                   {% if filters.has_asbestos %}checked{% endif %}>
-            <label class="form-check-label small" for="fAsbestos">Asbestos flags only</label>
+          <div class="mb-2">
+            <label class="form-label" for="fZip">Zip</label>
+            <input id="fZip" name="zip" class="form-control form-control-sm" placeholder="11101"
+                   value="{{ filters.zip_code }}">
           </div>
-        </div>
-        <button class="btn btn-success btn-sm w-100" type="submit">
-          <i class="bi bi-search me-1"></i>Apply
-        </button>
-        <a class="btn btn-outline-secondary btn-sm w-100 mt-1" href="/map">Clear</a>
-        <p class="mt-2 mb-0 small text-muted">
-          Map status and legend appear inside the 3D view.
+          <div class="mb-2">
+            <label class="form-label" for="fRisk">Risk</label>
+            <select id="fRisk" name="risk" class="form-select form-select-sm">
+              <option value="">All</option>
+              <option value="Low" {% if filters.risk_label=='Low' %}selected{% endif %}>Low</option>
+              <option value="Moderate" {% if filters.risk_label=='Moderate' %}selected{% endif %}>Moderate</option>
+              <option value="High" {% if filters.risk_label=='High' %}selected{% endif %}>High</option>
+              <option value="Critical" {% if filters.risk_label=='Critical' %}selected{% endif %}>Critical</option>
+            </select>
+          </div>
+          <div class="mb-2">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="fAsbestos" name="asbestos" value="1"
+                     {% if filters.has_asbestos %}checked{% endif %}>
+              <label class="form-check-label small" for="fAsbestos">Asbestos flags only</label>
+            </div>
+          </div>
+          <button class="btn btn-success btn-sm w-100" type="submit">Apply</button>
+          <a class="btn btn-outline-secondary btn-sm w-100 mt-1" href="/map">Clear</a>
+        </form>
+        <p class="map-demo-hint mt-2">
+          Demo: BIN 1063355 auto-opens.
+          <a href="/methodology">Confidence</a>
         </p>
       </div>
-    </form>
-  </div>
-
-  <!-- MapLibre React island -->
-  <div class="col-lg-9">
-    <div id="carbon-map-root"
-         style="height:680px; border-radius:12px; border:1px solid var(--cs-card-border); overflow:hidden; background:#0a0c10">
     </div>
+  </aside>
+
+  <div class="map-stage">
+    <div id="carbon-map-root" class="carbon-map-island"></div>
     {% if not map_bundle %}
     <div class="alert alert-warning mt-2 mb-0 small">
-      Map bundle not found. Run <code>npm install</code> then <code>npm run build</code> to generate
-      <code>src/web/static/map/</code>.
+      Map bundle not found. Run <code>npm run build</code>.
     </div>
     {% endif %}
   </div>
@@ -130,26 +154,6 @@
 {% endblock %}
 
 {% block scripts %}
-<style>
-.confidence-list { margin: 0; }
-.confidence-row {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  margin-bottom: 10px;
-}
-.confidence-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  margin-top: 5px;
-  flex-shrink: 0;
-}
-.confidence-count {
-  margin-right: 4px;
-  font-variant-numeric: tabular-nums;
-}
-</style>
 {% if map_bundle %}
 <script>window.__MAP_INIT__ = {{ map_init | tojson }};</script>
 {% for href in map_bundle.css %}

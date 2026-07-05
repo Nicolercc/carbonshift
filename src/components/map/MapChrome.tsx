@@ -1,20 +1,32 @@
 import type { CSSProperties } from "react";
+import { DEMO_BIN } from "./mapConfig";
 import type { MapDataSource } from "./mapTypes";
 import { dataSourceLabel } from "./buildingDataAdapter";
 
 interface MapChromeProps {
   dataSource: MapDataSource;
   buildingCount: number;
+  onDemoSelect?: () => void;
 }
 
 /** Map-local status strip — Flask navbar owns global navigation. */
-export function MapChrome({ dataSource, buildingCount }: MapChromeProps) {
+export function MapChrome({
+  dataSource,
+  buildingCount,
+  onDemoSelect,
+}: MapChromeProps) {
   const isLive = dataSource === "live";
   const isLoading = dataSource === "loading";
+  const isError = dataSource === "error";
 
   return (
     <div style={styles.bar}>
-      {!isLoading && (
+      {onDemoSelect && !isLoading && (
+        <button type="button" style={styles.demoButton} onClick={onDemoSelect}>
+          Demo BIN
+        </button>
+      )}
+      {!isLoading && !isError && (
         <span style={styles.countBadge}>
           {buildingCount.toLocaleString()} buildings
         </span>
@@ -22,9 +34,12 @@ export function MapChrome({ dataSource, buildingCount }: MapChromeProps) {
       <span
         style={{
           ...styles.sourceBadge,
-          ...(isLive ? styles.sourceLive : styles.sourceDemo),
+          ...(isLive ? styles.sourceLive : {}),
+          ...(isError ? styles.sourceError : {}),
+          ...(!isLive && !isError && !isLoading ? styles.sourceDemo : {}),
           ...(isLoading ? styles.sourceLoading : {}),
         }}
+        title={isLive ? `Demo BIN ${DEMO_BIN} auto-loads on start` : undefined}
       >
         {isLive && <span style={styles.liveDot} aria-hidden />}
         {dataSourceLabel(dataSource)}
@@ -46,8 +61,19 @@ const styles: Record<string, CSSProperties> = {
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   },
-  countBadge: {
+  demoButton: {
     fontSize: 12,
+    fontWeight: 600,
+    letterSpacing: "0.02em",
+    padding: "7px 11px",
+    borderRadius: 8,
+    border: "1px solid rgba(110, 207, 196, 0.3)",
+    background: "rgba(110, 207, 196, 0.1)",
+    color: "#6ECFC4",
+    cursor: "pointer",
+  },
+  countBadge: {
+    fontSize: 13,
     color: "#A8B2BD",
     padding: "5px 10px",
     borderRadius: 8,
@@ -75,6 +101,11 @@ const styles: Record<string, CSSProperties> = {
     background: "rgba(196, 160, 53, 0.1)",
     color: "#D4B85A",
     borderColor: "rgba(196, 160, 53, 0.22)",
+  },
+  sourceError: {
+    background: "rgba(158, 74, 74, 0.14)",
+    color: "#E8B4B4",
+    borderColor: "rgba(158, 74, 74, 0.28)",
   },
   sourceLoading: {
     background: "rgba(107, 117, 128, 0.12)",

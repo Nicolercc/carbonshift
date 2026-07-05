@@ -1,11 +1,15 @@
 import type { CSSProperties } from "react";
-import type { BackendRiskLabel } from "./mapConfig";
-import { RISK_COLORS, RISK_LEGEND_ORDER, RISK_LABELS } from "./mapConfig";
+import {
+  RISK_COLORS,
+  RISK_LEGEND_ORDER,
+  RISK_LABELS,
+  type BackendRiskLabel,
+} from "./mapConfig";
 
 export function MapLegend() {
   return (
     <div style={styles.legend}>
-      <p style={styles.title}>Building signal</p>
+      <p style={styles.title}>Risk layer</p>
       <ul style={styles.list}>
         {RISK_LEGEND_ORDER.map((key: BackendRiskLabel) => (
           <li key={key} style={styles.item}>
@@ -16,9 +20,7 @@ export function MapLegend() {
           </li>
         ))}
       </ul>
-      <p style={styles.note}>
-        Colors combine estimated carbon, violations, age, and confidence.
-      </p>
+      <p style={styles.note}>Height ≈ emissions · color = risk score</p>
     </div>
   );
 }
@@ -26,18 +28,18 @@ export function MapLegend() {
 const styles: Record<string, CSSProperties> = {
   legend: {
     position: "absolute",
-    bottom: 24,
-    left: 24,
-    background: "rgba(14, 17, 22, 0.9)",
+    bottom: 20,
+    left: 16,
+    background: "rgba(14, 17, 22, 0.92)",
     backdropFilter: "blur(14px)",
     borderRadius: 12,
     border: "1px solid rgba(255, 255, 255, 0.07)",
-    padding: "14px 16px",
+    padding: "12px 14px",
     zIndex: 10,
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     color: "#E8ECF0",
-    minWidth: 210,
+    minWidth: 196,
     boxShadow: "0 8px 32px rgba(0, 0, 0, 0.35)",
   },
   title: {
@@ -70,6 +72,7 @@ const styles: Record<string, CSSProperties> = {
   },
   label: {
     fontSize: 13,
+    fontWeight: 500,
     color: "#CDD5DE",
   },
   note: {

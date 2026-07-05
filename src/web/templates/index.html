@@ -1,133 +1,104 @@
 {% extends "base.html" %}
 {% block title %}CarbonShift — Queens Building Carbon Intelligence{% endblock %}
 
+{% block hero %}
+<section class="cs-landing-hero">
+  <div class="container">
+    <div class="row align-items-center g-4">
+      <div class="col-lg-6">
+        <p class="cs-eyebrow mb-0">Queens · NYC Open Data</p>
+        <h1 class="mb-0">NYC building risk,<br>mapped in one view.</h1>
+        <p class="cs-lead mb-0">
+          Civic climate intelligence for the built environment — emissions, compliance,
+          asbestos signal, and data confidence on every footprint.
+        </p>
+        <div class="cs-signal-strip">
+          <span class="cs-signal-pill"><i class="bi bi-shield-exclamation"></i>Risk</span>
+          <span class="cs-signal-pill"><i class="bi bi-cloud-haze2"></i>Carbon</span>
+          <span class="cs-signal-pill"><i class="bi bi-clipboard-check"></i>Compliance</span>
+          <span class="cs-signal-pill"><i class="bi bi-exclamation-triangle"></i>Asbestos</span>
+          <span class="cs-signal-pill"><i class="bi bi-patch-check"></i>Confidence</span>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+          <a href="/map" class="btn btn-success btn-lg px-4">
+            <i class="bi bi-map me-1"></i>Open live map
+          </a>
+          <a href="/methodology" class="btn btn-outline-light btn-lg">
+            How confidence works
+          </a>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <a href="/map" class="cs-hero-visual d-block text-decoration-none" aria-label="Open live map">
+          <div class="cs-hero-visual-grid" aria-hidden="true">
+            <div class="cs-hero-visual-cell"></div>
+            <div class="cs-hero-visual-cell risk-mod"></div>
+            <div class="cs-hero-visual-cell"></div>
+            <div class="cs-hero-visual-cell risk-high"></div>
+            <div class="cs-hero-visual-cell"></div>
+            <div class="cs-hero-visual-cell risk-crit"></div>
+            <div class="cs-hero-visual-cell risk-mod"></div>
+            <div class="cs-hero-visual-cell"></div>
+            <div class="cs-hero-visual-cell"></div>
+            <div class="cs-hero-visual-cell risk-high"></div>
+            <div class="cs-hero-visual-cell"></div>
+            <div class="cs-hero-visual-cell"></div>
+          </div>
+          <div class="cs-hero-visual-caption">
+            <i class="bi bi-box me-1"></i>3D building layer · click any footprint for the full signal panel
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
 {% block content %}
-<div class="row mb-4 align-items-center">
-  <div class="col-lg-7">
-    <p class="text-success small fw-semibold text-uppercase mb-2" style="letter-spacing:.08em">
-      Queens · NYC Open Data
-    </p>
-    <h1 class="fw-bold mb-2">Building carbon intelligence,<br>with confidence made visible</h1>
-    <p class="text-muted mb-4">
-      Explore every Queens building on an interactive map. See estimated emissions and risk —
-      and whether each number is <strong>measured</strong> (LL84/97 disclosure) or
-      <strong>modeled</strong> from peer buildings.
-    </p>
-    <div class="d-flex flex-wrap gap-2 mb-3">
-      <a href="/map" class="btn btn-success btn-lg px-4">
-        <i class="bi bi-map me-1"></i>Explore Map
-      </a>
-      <a href="/methodology" class="btn btn-outline-secondary btn-lg">
-        How confidence works
-      </a>
-    </div>
-    <p class="text-muted small mb-0">
-      Or <a href="/search?q=">search by address, BIN, or zip</a> to jump straight to a building profile.
-    </p>
-  </div>
-  <div class="col-lg-5">
-    {% if stats %}
-    <div class="row g-2">
-      <div class="col-6">
-        <div class="card stat-card p-3 text-center h-100">
-          <div class="display-6">{{ "{:,}".format(stats.buildings) }}</div>
-          <div class="text-muted small">Buildings mapped</div>
-        </div>
-      </div>
-      <div class="col-6">
-        <div class="card stat-card p-3 text-center h-100">
-          <div class="display-6">{{ "{:,}".format(stats.buildings_with_energy) }}</div>
-          <div class="text-muted small">Measured emissions</div>
-        </div>
-      </div>
-      <div class="col-6">
-        <div class="card stat-card p-3 text-center h-100">
-          <div class="display-6">{{ "{:,}".format(stats.carbon_estimates) }}</div>
-          <div class="text-muted small">Carbon estimates</div>
-        </div>
-      </div>
-      <div class="col-6">
-        <div class="card stat-card p-3 text-center h-100">
-          <div class="display-6 text-danger">{{ "{:,}".format(stats.high_risk) }}</div>
-          <div class="text-muted small">High / critical risk</div>
-        </div>
-      </div>
-    </div>
-    {% else %}
-    <div class="alert alert-info mb-0">
-      <i class="bi bi-info-circle me-2"></i>
-      Run <code>python run.py</code> then <code>python score.py</code> to populate the map.
-    </div>
-    {% endif %}
-  </div>
-</div>
-
-<div class="section-heading">Your journey</div>
-<div class="row g-3 mb-4">
-  <div class="col-md-4">
-    <div class="card h-100">
-      <div class="card-header"><i class="bi bi-1-circle me-2"></i>Explore the map</div>
-      <div class="card-body">
-        <p class="text-muted small mb-3">
-          Pan Queens in 3D. Buildings are colored by risk. Click any footprint to see
-          emissions, violations, and confidence at a glance.
-        </p>
-        <a href="/map" class="btn btn-success btn-sm">Open map →</a>
-      </div>
+{% if stats %}
+<div class="row g-3 cs-stat-row mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card stat-card p-3 text-center h-100">
+      <div class="display-6 mb-1">{{ "{:,}".format(stats.buildings) }}</div>
+      <div class="cs-stat-label">Buildings mapped</div>
     </div>
   </div>
-  <div class="col-md-4">
-    <div class="card h-100">
-      <div class="card-header"><i class="bi bi-2-circle me-2"></i>Understand confidence</div>
-      <div class="card-body">
-        <p class="text-muted small mb-3">
-          Not every number is measured. Learn how CarbonShift labels emissions as
-          measured, class-median modeled, or borough-median modeled.
-        </p>
-        <a href="/methodology" class="btn btn-outline-secondary btn-sm">Data confidence →</a>
-      </div>
+  <div class="col-6 col-md-3">
+    <div class="card stat-card p-3 text-center h-100">
+      <div class="display-6 mb-1">{{ "{:,}".format(stats.buildings_with_energy) }}</div>
+      <div class="cs-stat-label">Measured emissions</div>
     </div>
   </div>
-  <div class="col-md-4">
-    <div class="card h-100">
-      <div class="card-header"><i class="bi bi-3-circle me-2"></i>Inspect a building</div>
-      <div class="card-body">
-        <p class="text-muted small mb-3">
-          Search for an address or BIN, open the full building profile, and follow
-          violations, asbestos filings, and energy history.
-        </p>
-        <form action="/search" method="get" class="d-flex gap-1">
-          <input class="form-control form-control-sm" name="q" placeholder="Address or BIN">
-          <button class="btn btn-outline-success btn-sm" type="submit"><i class="bi bi-search"></i></button>
-        </form>
-      </div>
+  <div class="col-6 col-md-3">
+    <div class="card stat-card p-3 text-center h-100">
+      <div class="display-6 mb-1">{{ "{:,}".format(stats.carbon_estimates) }}</div>
+      <div class="cs-stat-label">Carbon estimates</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card stat-card p-3 text-center h-100">
+      <div class="display-6 text-danger mb-1">{{ "{:,}".format(stats.high_risk) }}</div>
+      <div class="cs-stat-label">High / critical risk</div>
     </div>
   </div>
 </div>
+{% else %}
+<div class="alert alert-info mb-4">
+  <i class="bi bi-info-circle me-2"></i>
+  Run <code>python run.py</code> then <code>python score.py</code> to populate the map.
+</div>
+{% endif %}
 
-<div class="row g-3">
-  <div class="col-md-6">
-    <div class="card h-100">
-      <div class="card-header"><i class="bi bi-bar-chart-line me-2"></i>Borough insights</div>
-      <div class="card-body">
-        <p class="text-muted small">
-          Trends across building age, emissions by class, violations, and asbestos — optional
-          context after you have explored the map.
-        </p>
-        <a href="/insights" class="btn btn-outline-secondary btn-sm">View insights →</a>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-6">
-    <div class="card h-100 border-0 bg-transparent" style="box-shadow:none">
-      <div class="card-body px-0">
-        <p class="text-muted small mb-1">
-          <i class="bi bi-tools me-1"></i>
-          Need raw tables or custom SQL? See <a href="/query">SQL Explorer</a>
-          and CSV downloads under <strong>Data Tools</strong> in the nav.
-        </p>
-      </div>
-    </div>
-  </div>
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 cs-quick-links text-muted">
+  <span>
+    <i class="bi bi-search me-1"></i>
+    <a href="/search?q=">Search by address, BIN, or zip</a>
+    <span class="mx-2">·</span>
+    <a href="/insights">Borough insights</a>
+  </span>
+  <span class="small">
+    <i class="bi bi-tools me-1"></i>
+    <a href="/query">SQL Explorer</a> under Data Tools
+  </span>
 </div>
 {% endblock %}

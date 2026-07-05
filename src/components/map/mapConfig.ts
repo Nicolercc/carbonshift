@@ -16,6 +16,18 @@ export const MAP_STYLE_URL =
 export const MAP_STYLE_FALLBACK_URL =
   "https://demotiles.maplibre.org/style.json";
 
+/** Presentation demo building — strongest four-signal API payload. */
+export const DEMO_BIN = "1063355";
+
+/** Default GeoJSON payload size for /map (URL ?limit= overrides). */
+export const MAP_GEOJSON_LIMIT = 2000;
+
+/** Max violation rows shown in map building panel. */
+export const VIOLATION_DISPLAY_CAP = 5;
+
+/** Max risk driver chips shown in building panel. */
+export const RISK_DRIVER_DISPLAY_CAP = 5;
+
 export const BUILDING_SOURCE_ID = "carbon-buildings";
 export const BUILDING_EXTRUSION_LAYER_ID = "building-extrusion";
 export const BUILDING_OUTLINE_LAYER_ID = "building-outline";

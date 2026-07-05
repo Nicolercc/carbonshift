@@ -9,6 +9,11 @@
   isolation: isolate;
 }
 
+@keyframes cs-skeleton {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 /* Standalone Vite dev preview shell (index.html) */
 .dev-map-shell {
   display: flex;

@@ -77,6 +77,97 @@
     /* ── Theme toggle ─────────────────────────────────────────── */
     #themeToggle { opacity: .7; transition: opacity .15s; }
     #themeToggle:hover { opacity: 1; }
+
+    /* ── Landing / presentation polish ─────────────────────────── */
+    .cs-landing-hero {
+      background: linear-gradient(145deg, #0d1117 0%, #132218 45%, #1a2f28 100%);
+      color: #e8ecf0;
+      padding: 3.5rem 0 2.5rem;
+      margin: -1rem calc(-50vw + 50%) 2rem;
+      width: 100vw;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .cs-landing-hero .cs-eyebrow {
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: #6ecfc4;
+      margin-bottom: .75rem;
+    }
+    .cs-landing-hero h1 {
+      font-size: clamp(2rem, 4vw, 2.75rem);
+      font-weight: 700;
+      letter-spacing: -.02em;
+      line-height: 1.15;
+      margin-bottom: .75rem;
+    }
+    .cs-landing-hero .cs-lead {
+      font-size: 1.05rem;
+      color: #9aa5b1;
+      max-width: 36rem;
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+    .cs-signal-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      margin: 1.25rem 0 1.75rem;
+    }
+    .cs-signal-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      font-size: .78rem;
+      font-weight: 600;
+      padding: .35rem .7rem;
+      border-radius: 999px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.1);
+      color: #cdd5de;
+    }
+    .cs-signal-pill i { color: #6ecfc4; font-size: .85rem; }
+    .cs-hero-visual {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #0a0c10;
+      border: 1px solid rgba(255,255,255,.08);
+      min-height: 220px;
+      box-shadow: 0 24px 48px rgba(0,0,0,.35);
+    }
+    .cs-hero-visual-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+      padding: 18px;
+      opacity: .85;
+    }
+    .cs-hero-visual-cell {
+      aspect-ratio: 1;
+      border-radius: 6px;
+      background: linear-gradient(135deg, rgba(61,170,158,.25), rgba(61,170,158,.08));
+      border: 1px solid rgba(255,255,255,.04);
+    }
+    .cs-hero-visual-cell.risk-high { background: linear-gradient(135deg, rgba(201,107,82,.45), rgba(201,107,82,.12)); }
+    .cs-hero-visual-cell.risk-mod { background: linear-gradient(135deg, rgba(196,160,53,.4), rgba(196,160,53,.1)); }
+    .cs-hero-visual-cell.risk-crit { background: linear-gradient(135deg, rgba(158,74,74,.5), rgba(158,74,74,.14)); }
+    .cs-hero-visual-caption {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: .65rem 1rem;
+      font-size: .72rem;
+      color: #7d8794;
+      background: linear-gradient(transparent, rgba(10,12,16,.92));
+    }
+    .cs-stat-row .stat-card { transition: transform .15s ease; }
+    .cs-stat-row .stat-card:hover { transform: translateY(-2px); }
+    .cs-stat-label { font-size: .78rem; color: var(--cs-section-color); }
+    .cs-quick-links { font-size: .85rem; }
+    .cs-quick-links a { text-decoration: none; font-weight: 500; }
   </style>
 </head>
 <body>
@@ -138,6 +229,8 @@
     </div>
   </div>
 </nav>
+
+{% block hero %}{% endblock %}
 
 <div class="container">
   {% with messages = get_flashed_messages(with_categories=true) %}

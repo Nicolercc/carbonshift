@@ -157,6 +157,49 @@ Production CORS setup:
 CORS_ALLOWED_ORIGINS=https://your-frontend.vercel.app,https://your-replit-domain.replit.app
 ```
 
+## Presentation MVP — Map-first demo (Flask island)
+
+Time: same evening as Phase 1 hardening
+
+Owner: map island (`src/components/map/*`, `src/web/templates/map.html`)
+
+Goal:
+
+Ship a visual-first `/map` experience for class presentation without starting Next.js.
+
+Built:
+
+- Full-viewport map stage with compact filter sidebar
+- Auto-select demo BIN `1063355` + **Demo building** control
+- GeoJSON limit default `2000` (URL override preserved)
+- Map + building panel loading skeletons and error states
+- Five-signal building panel fed by `/api/buildings/<bin>`
+- Violation list capped at 5; null metadata columns hidden
+- `eui_source` badge beside every carbon figure in map panel and building page
+
+Demo route:
+
+```txt
+http://127.0.0.1:5050/map
+http://127.0.0.1:5050/map?bin=1063355
+```
+
+Pre-demo:
+
+```bash
+source venv/bin/activate && python web.py
+curl http://127.0.0.1:5050/api/health
+curl "http://127.0.0.1:5050/api/buildings/1063355?limit=5"
+npm run build   # if map source changed
+```
+
+Known gaps:
+
+- Next.js Phase 2 not started
+- Violation metadata nulls are upstream data issues
+- No violation pagination
+- Connection should be pre-warmed before presenting
+
 ## Phase 2: Next.js Frontend Foundation
 
 Time: 0.5-1.5 days

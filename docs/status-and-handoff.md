@@ -2,6 +2,46 @@
 
 **Merge readiness:** Phase 1 API hardening is complete on `nr/map-integration`. Live Supabase-backed smoke checks pass (`python scripts/smoke_api.py`, `npm run typecheck`). No `/frontend` Next.js app exists yet; Phase 2 has not started. The existing Vite/React/MapLibre map island at `/map` remains the current UI.
 
+## Presentation MVP map polish (July 4, 2026)
+
+`/map` is the flagship demo surface for class presentation. No Next.js migration was started.
+
+### UX changes
+
+- Map viewport is nearly full-screen (`calc(100vh - 74px)`); sidebar filters are compact.
+- Default demo building **BIN 1063355** auto-loads on map start (strongest four-signal API payload).
+- **Demo building** button in the map chrome re-opens that BIN.
+- GeoJSON initial limit reduced from 8000 → **2000** (`app.py` + client adapter; URL `?limit=` still overrides).
+- Map loading skeleton: “Loading NYC building risk layer…”
+- Building panel skeleton + polished **No building detail found** state.
+- Building panel shows five signal cards: Risk, Carbon (with `eui_source` badge), Compliance, Asbestos, Data completeness.
+- Violation evidence capped to **5** rows in the map panel; null metadata columns (`issuing_agency`, `violation_number`, `severity`) are not shown.
+- Map data failures show a retry overlay instead of silently falling back to demo squares.
+
+### Demo flow
+
+```bash
+source venv/bin/activate
+python web.py
+# Pre-warm the API once before presenting:
+curl http://127.0.0.1:5050/api/health
+curl "http://127.0.0.1:5050/api/buildings/1063355?limit=5"
+# Open in browser:
+open http://127.0.0.1:5050/map
+```
+
+Presentation path: land on `/map` → demo building panel opens → click other footprints → use **Demo building** to return.
+
+### Known gaps (out of scope tonight)
+
+- No Next.js `/frontend` app — Phase 2 not started; current UI is Vite/React/MapLibre inside Flask.
+- Missing violation metadata (`issuing_agency`, `violation_number`, `severity`) is a **data pipeline** issue, not a UI bug — fields are hidden rather than showing empty columns.
+- Long violation history has no pagination — capped client-side only.
+- Pre-warm Flask + Supabase connection before demo to avoid first-request latency.
+- Map default viewport/copy still Queens-biased in several places.
+
+---
+
 ## Latest Phase 1 hardening
 
 The Flask API is now hardened for pre-merge review without starting Phase 2

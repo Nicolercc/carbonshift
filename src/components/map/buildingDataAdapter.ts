@@ -4,7 +4,7 @@ import {
   deriveSuggestedAction,
   normalizeRiskLabel,
 } from "./buildingInsights";
-import { sampleBuildings } from "./sampleBuildings";
+import { DEMO_BIN, MAP_GEOJSON_LIMIT } from "./mapConfig";
 import type {
   ApiBuildingFeature,
   ApiBuildingFeatureCollection,
@@ -103,8 +103,18 @@ function readInitConfig(): MapInitConfig {
     year_max: Number.isFinite(yearMax) ? yearMax : null,
     risk: pick("risk", "risk"),
     asbestos: init.asbestos ?? params.get("asbestos") === "1",
-    limit: init.limit ?? (params.get("limit") ? Number(params.get("limit")) : 8000),
+    limit: init.limit ?? (params.get("limit") ? Number(params.get("limit")) : MAP_GEOJSON_LIMIT),
   };
+}
+
+/** Resolve which BIN to auto-select: URL ?bin= wins, then Flask demo_bin, then default. */
+export function resolveTargetBin(): string {
+  const init = window.__MAP_INIT__ ?? {};
+  const urlBin = new URLSearchParams(window.location.search).get("bin")?.trim();
+  if (urlBin) return urlBin;
+  const initBin = init.demo_bin?.trim();
+  if (initBin) return initBin;
+  return DEMO_BIN;
 }
 
 /** Build `/api/buildings.geojson` URL from Flask-injected init + page query string. */
@@ -119,18 +129,33 @@ export function buildBuildingsApiUrl(): string {
   if (cfg.year_max != null) params.set("year_max", String(cfg.year_max));
   if (cfg.risk) params.set("risk", cfg.risk);
   if (cfg.asbestos) params.set("asbestos", "1");
-  params.set("limit", String(cfg.limit ?? 8000));
+  params.set("limit", String(cfg.limit ?? MAP_GEOJSON_LIMIT));
 
   return `/api/buildings.geojson?${params.toString()}`;
 }
 
+function userFacingMapError(status: number): string {
+  if (status === 503) {
+    return "The map data service is temporarily unavailable.";
+  }
+  if (status >= 500) {
+    return "The building layer could not be loaded right now.";
+  }
+  return "The building layer could not be loaded. Check your connection and retry.";
+}
+
 async function fetchApiBuildings(): Promise<BuildingFeatureCollection | null> {
-  const response = await fetch(buildBuildingsApiUrl(), {
-    headers: { Accept: "application/json" },
-  });
+  let response: Response;
+  try {
+    response = await fetch(buildBuildingsApiUrl(), {
+      headers: { Accept: "application/json" },
+    });
+  } catch {
+    throw new Error("The building layer could not be loaded. Check your connection and retry.");
+  }
 
   if (!response.ok) {
-    throw new Error(`API responded with ${response.status}`);
+    throw new Error(userFacingMapError(response.status));
   }
 
   const api = (await response.json()) as ApiBuildingFeatureCollection;
@@ -149,15 +174,20 @@ export async function loadBuildings(): Promise<BuildingsLoadResult> {
         count: live.features.length,
       };
     }
-  } catch {
-    // Fall through to demo data.
+    return {
+      collection: { type: "FeatureCollection", features: [] },
+      source: "error",
+      count: 0,
+      error: "No buildings returned from the API",
+    };
+  } catch (err) {
+    return {
+      collection: { type: "FeatureCollection", features: [] },
+      source: "error",
+      count: 0,
+      error: err instanceof Error ? err.message : "The building layer could not be loaded.",
+    };
   }
-
-  return {
-    collection: sampleBuildings,
-    source: "demo",
-    count: sampleBuildings.features.length,
-  };
 }
 
 export function dataSourceLabel(source: MapDataSource): string {
@@ -166,6 +196,8 @@ export function dataSourceLabel(source: MapDataSource): string {
       return "Live Queens data";
     case "demo":
       return "Demo sample data";
+    case "error":
+      return "Data unavailable";
     default:
       return "Loading…";
   }

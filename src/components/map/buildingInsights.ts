@@ -34,7 +34,7 @@ export function ghgConfidenceLabel(source: string): string {
   if (source === "measured") return "Measured LL84/97";
   if (source === "class_median") return "Similar buildings (class median)";
   if (source === "borough_median") return "Borough fallback";
-  if (!source) return "Not available";
+  if (!source) return "Source unavailable";
   return "Modeled estimate";
 }
 
@@ -154,4 +154,154 @@ export function formatGhg(ghg: number | null): string {
 export function formatBuildingArea(sqFt: number | null): string {
   if (sqFt == null || sqFt <= 0) return "—";
   return `${Math.round(sqFt).toLocaleString()} sq ft`;
+}
+
+export function complianceSignalLine(violationCount: number): {
+  value: string;
+  hint: string;
+} {
+  if (violationCount <= 0) {
+    return {
+      value: "No violations",
+      hint: "No enforcement records in the current sample",
+    };
+  }
+  if (violationCount === 1) {
+    return { value: "1 violation", hint: "Enforcement history on file" };
+  }
+  return {
+    value: `${violationCount} violations`,
+    hint: "Compliance signal — review recent records below",
+  };
+}
+
+export function asbestosSignalLine(
+  hasSignal: boolean,
+  totalProjectCount: number,
+  totalViolationFlags: number,
+): { value: string; chip: string } {
+  if (!hasSignal) {
+    return { value: "No asbestos signal", chip: "Clear" };
+  }
+  const parts: string[] = [];
+  const sameTotal =
+    totalProjectCount > 0 &&
+    totalViolationFlags > 0 &&
+    totalProjectCount === totalViolationFlags;
+
+  if (sameTotal) {
+    parts.push(
+      `${totalViolationFlags} flagged violation${totalViolationFlags === 1 ? "" : "s"}`,
+    );
+  } else {
+    if (totalProjectCount > 0) {
+      parts.push(
+        `${totalProjectCount} asbestos project${totalProjectCount === 1 ? "" : "s"}`,
+      );
+    }
+    if (totalViolationFlags > 0) {
+      parts.push(
+        `${totalViolationFlags} flagged violation${totalViolationFlags === 1 ? "" : "s"}`,
+      );
+    }
+  }
+  return {
+    value: parts.join(" · ") || "Signal detected",
+    chip: "Review before capital work",
+  };
+}
+
+export function dataCompletenessLine(
+  completeness: {
+    has_location: boolean;
+    has_profile: boolean;
+    has_risk_score: boolean;
+    has_carbon_estimate: boolean;
+  },
+  riskConfidence: string | null | undefined,
+): { value: string; chip: string } {
+  const flags = [
+    completeness.has_location,
+    completeness.has_profile,
+    completeness.has_risk_score,
+    completeness.has_carbon_estimate,
+  ];
+  const present = flags.filter(Boolean).length;
+  const missing: string[] = [];
+  if (!completeness.has_location) missing.push("location");
+  if (!completeness.has_profile) missing.push("profile");
+  if (!completeness.has_risk_score) missing.push("risk");
+  if (!completeness.has_carbon_estimate) missing.push("carbon");
+
+  const confidence = riskConfidence?.trim()
+    ? `${riskConfidence.trim()} confidence`
+    : "Confidence unavailable";
+
+  return {
+    value: `${present}/4 inputs`,
+    chip: missing.length ? `${confidence} · missing ${missing.join(", ")}` : confidence,
+  };
+}
+
+export function buildingMetaLine(
+  building: Record<string, unknown>,
+  bin: string,
+): string {
+  const parts = [`BIN ${bin}`];
+  const buildingClass = String(building.building_class || "").trim();
+  const yearBuilt = building.year_built;
+  if (buildingClass) parts.push(`Class ${buildingClass}`);
+  if (yearBuilt != null && yearBuilt !== "") parts.push(String(yearBuilt));
+  return parts.join(" · ");
+}
+
+export function isValidCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+/** True violation total for headline copy — not the capped detail payload. */
+export function resolveViolationTotal(
+  fallback: { violations?: number } | undefined,
+  building: Record<string, unknown>,
+  returnedCount: number,
+): number {
+  if (isValidCount(fallback?.violations)) return fallback.violations;
+  const fromBuilding = building.violation_count ?? building.violations;
+  if (isValidCount(fromBuilding)) return fromBuilding;
+  if (isValidCount(returnedCount)) return returnedCount;
+  return 0;
+}
+
+/** True asbestos project total for headline copy — not the capped detail payload. */
+export function resolveAsbestosProjectTotal(
+  fallback: { asbestos?: number } | undefined,
+  building: Record<string, unknown>,
+  returnedCount: number,
+): number {
+  if (isValidCount(fallback?.asbestos)) return fallback.asbestos;
+  const fromBuilding =
+    building.asbestos_project_count ?? building.asbestos_projects;
+  if (isValidCount(fromBuilding)) return fromBuilding;
+  if (isValidCount(returnedCount)) return returnedCount;
+  return 0;
+}
+
+/** True asbestos-related violation flag total when available from map feature. */
+export function resolveAsbestosViolationFlags(
+  fallback: { asbestos?: number } | undefined,
+  returnedCount: number,
+): number {
+  if (isValidCount(fallback?.asbestos)) return fallback.asbestos;
+  if (isValidCount(returnedCount)) return returnedCount;
+  return 0;
+}
+
+export function formatRecordCapNote(
+  displayed: number,
+  total: number,
+  label: string,
+): string | null {
+  if (total <= displayed) return null;
+  const noun = total === 1 ? label.replace(/s$/, "") : label;
+  return `Showing ${displayed} of ${total} ${noun}`;
 }

@@ -57,12 +57,64 @@ export type BuildingFeatureCollection = FeatureCollection<
   BuildingProperties
 >;
 
-export type MapDataSource = "loading" | "live" | "demo";
+export type MapDataSource = "loading" | "live" | "demo" | "error";
+
+export interface BuildingDetailSignals {
+  risk: {
+    score: number | null;
+    label: string;
+    confidence: string | null;
+    drivers: string[];
+  };
+  carbon: {
+    estimated_ghg_metric_tons: number | null;
+    eui_source: string | null;
+    site_eui: number | null;
+    peer_building_count: number | null;
+  };
+  compliance: {
+    violation_count_returned: number;
+    asbestos_related_violation_count_returned: number;
+  };
+  asbestos: {
+    project_count_returned: number;
+    has_asbestos_signal: boolean;
+  };
+  data_completeness: {
+    has_location: boolean;
+    has_profile: boolean;
+    has_risk_score: boolean;
+    has_carbon_estimate: boolean;
+  };
+}
+
+export interface ViolationRecord {
+  source_dataset?: string;
+  violation_class?: string;
+  issue_date?: string;
+  current_status?: string;
+  violation_description?: string;
+  is_asbestos_related?: number;
+  penalty_imposed?: number | null;
+  balance_due?: number | null;
+}
+
+export interface BuildingDetailPayload {
+  building: Record<string, unknown>;
+  signals: BuildingDetailSignals;
+  records: {
+    violations: ViolationRecord[];
+    energy: Record<string, unknown>[];
+    asbestos: Record<string, unknown>[];
+  };
+  record_limit: number;
+}
 
 export interface BuildingsLoadResult {
   collection: BuildingFeatureCollection;
   source: MapDataSource;
   count: number;
+  error?: string;
 }
 
 /** Initial filter state injected by Flask `map.html`. */
@@ -75,4 +127,5 @@ export interface MapInitConfig {
   risk?: string;
   asbestos?: boolean;
   limit?: number;
+  demo_bin?: string;
 }

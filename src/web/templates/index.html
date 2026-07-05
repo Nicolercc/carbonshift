@@ -1,35 +1,39 @@
 {% extends "base.html" %}
-{% block title %}CarbonShift — Queens Building Carbon Intelligence{% endblock %}
+{% block title %}CarbonShift — NYC Building Risk Intelligence{% endblock %}
 
 {% block hero %}
+<script>
+  document.documentElement.classList.add("landing-page-root");
+  document.body.classList.add("landing-page");
+</script>
 <section class="cs-landing-hero">
   <div class="container">
-    <div class="row align-items-center g-4">
+    <div class="row align-items-center g-4 g-lg-5">
       <div class="col-lg-6">
-        <p class="cs-eyebrow mb-0">Queens · NYC Open Data</p>
-        <h1 class="mb-0">NYC building risk,<br>mapped in one view.</h1>
+        <p class="cs-eyebrow mb-0">CarbonShift · NYC Open Data</p>
+        <h1 class="mb-0">NYC building risk intelligence</h1>
         <p class="cs-lead mb-0">
-          Civic climate intelligence for the built environment — emissions, compliance,
-          asbestos signal, and data confidence on every footprint.
+          Map estimated emissions, compliance violations, asbestos signals, and data
+          confidence — building by building.
         </p>
-        <div class="cs-signal-strip">
+        <div class="cs-signal-strip" aria-label="Core signals">
           <span class="cs-signal-pill"><i class="bi bi-shield-exclamation"></i>Risk</span>
-          <span class="cs-signal-pill"><i class="bi bi-cloud-haze2"></i>Carbon</span>
+          <span class="cs-signal-pill"><i class="bi bi-cloud-haze2"></i>Emissions</span>
           <span class="cs-signal-pill"><i class="bi bi-clipboard-check"></i>Compliance</span>
           <span class="cs-signal-pill"><i class="bi bi-exclamation-triangle"></i>Asbestos</span>
           <span class="cs-signal-pill"><i class="bi bi-patch-check"></i>Confidence</span>
         </div>
-        <div class="d-flex flex-wrap gap-2">
-          <a href="/map" class="btn btn-success btn-lg px-4">
-            <i class="bi bi-map me-1"></i>Open live map
+        <div class="cs-cta-row">
+          <a href="/map" class="btn cs-btn-primary btn-lg">
+            <i class="bi bi-map me-1"></i>Open data map
           </a>
-          <a href="/methodology" class="btn btn-outline-light btn-lg">
-            How confidence works
+          <a href="/map?bin=1063355" class="btn cs-btn-secondary btn-lg">
+            Use demo building
           </a>
         </div>
       </div>
       <div class="col-lg-6">
-        <a href="/map" class="cs-hero-visual d-block text-decoration-none" aria-label="Open live map">
+        <a href="/map" class="cs-hero-visual d-block text-decoration-none" aria-label="Open data map">
           <div class="cs-hero-visual-grid" aria-hidden="true">
             <div class="cs-hero-visual-cell"></div>
             <div class="cs-hero-visual-cell risk-mod"></div>
@@ -44,61 +48,47 @@
             <div class="cs-hero-visual-cell"></div>
             <div class="cs-hero-visual-cell"></div>
           </div>
-          <div class="cs-hero-visual-caption">
-            <i class="bi bi-box me-1"></i>3D building layer · click any footprint for the full signal panel
-          </div>
+          <div class="cs-hero-visual-caption">Click to explore the live map</div>
         </a>
       </div>
     </div>
+    {% if stats %}
+    <div class="cs-hero-stats row g-2 g-md-3 mt-4 mt-lg-5">
+      <div class="col-6 col-md-3">
+        <div class="cs-hero-stat">
+          <div class="cs-hero-stat-value">{{ "{:,}".format(stats.buildings) }}</div>
+          <div class="cs-hero-stat-label">Buildings</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="cs-hero-stat">
+          <div class="cs-hero-stat-value">{{ "{:,}".format(stats.buildings_with_energy) }}</div>
+          <div class="cs-hero-stat-label">Measured emissions</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="cs-hero-stat">
+          <div class="cs-hero-stat-value">{{ "{:,}".format(stats.carbon_estimates) }}</div>
+          <div class="cs-hero-stat-label">Carbon scored</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="cs-hero-stat">
+          <div class="cs-hero-stat-value cs-hero-stat-alert">{{ "{:,}".format(stats.high_risk) }}</div>
+          <div class="cs-hero-stat-label">High / critical</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
   </div>
 </section>
 {% endblock %}
 
 {% block content %}
-{% if stats %}
-<div class="row g-3 cs-stat-row mb-4">
-  <div class="col-6 col-md-3">
-    <div class="card stat-card p-3 text-center h-100">
-      <div class="display-6 mb-1">{{ "{:,}".format(stats.buildings) }}</div>
-      <div class="cs-stat-label">Buildings mapped</div>
-    </div>
-  </div>
-  <div class="col-6 col-md-3">
-    <div class="card stat-card p-3 text-center h-100">
-      <div class="display-6 mb-1">{{ "{:,}".format(stats.buildings_with_energy) }}</div>
-      <div class="cs-stat-label">Measured emissions</div>
-    </div>
-  </div>
-  <div class="col-6 col-md-3">
-    <div class="card stat-card p-3 text-center h-100">
-      <div class="display-6 mb-1">{{ "{:,}".format(stats.carbon_estimates) }}</div>
-      <div class="cs-stat-label">Carbon estimates</div>
-    </div>
-  </div>
-  <div class="col-6 col-md-3">
-    <div class="card stat-card p-3 text-center h-100">
-      <div class="display-6 text-danger mb-1">{{ "{:,}".format(stats.high_risk) }}</div>
-      <div class="cs-stat-label">High / critical risk</div>
-    </div>
-  </div>
-</div>
-{% else %}
-<div class="alert alert-info mb-4">
+{% if not stats %}
+<div class="cs-landing-setup alert alert-secondary border-0 mb-0">
   <i class="bi bi-info-circle me-2"></i>
-  Run <code>python run.py</code> then <code>python score.py</code> to populate the map.
+  Run <code>python run.py</code> and <code>python score.py</code> to load building data.
 </div>
 {% endif %}
-
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 cs-quick-links text-muted">
-  <span>
-    <i class="bi bi-search me-1"></i>
-    <a href="/search?q=">Search by address, BIN, or zip</a>
-    <span class="mx-2">·</span>
-    <a href="/insights">Borough insights</a>
-  </span>
-  <span class="small">
-    <i class="bi bi-tools me-1"></i>
-    <a href="/query">SQL Explorer</a> under Data Tools
-  </span>
-</div>
 {% endblock %}

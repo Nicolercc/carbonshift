@@ -1,25 +1,23 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { fetchBuildingDetail } from "./buildingDetail";
 import {
   DEMO_BIN,
   RISK_COLORS,
-  RISK_DRIVER_DISPLAY_CAP,
   RISK_LABELS,
   VIOLATION_DISPLAY_CAP,
   type BackendRiskLabel,
 } from "./mapConfig";
 import {
-  asbestosSignalLine,
-  buildingMetaLine,
+  asbestosBrief,
+  carbonSignalValue,
   complianceSignalLine,
-  dataCompletenessLine,
-  formatGhg,
+  confidenceBrief,
+  formatBoroughLabel,
   formatRecordCapNote,
-  ghgConfidenceLabel,
-  ghgConfidenceTier,
-  resolveAsbestosProjectTotal,
   resolveAsbestosViolationFlags,
   resolveViolationTotal,
+  riskSignalValue,
+  whyFlaggedSentence,
 } from "./buildingInsights";
 import type {
   BuildingDetailPayload,
@@ -87,35 +85,21 @@ export function BuildingInsightCard({
     fallback?.risk_label ||
     "Unscored") as BackendRiskLabel;
   const accent = RISK_COLORS[riskLabel] ?? RISK_COLORS.Unscored;
-  const address =
-    String(building.full_address || fallback?.address || `BIN ${bin}`);
-  const euiSource = String(
-    signals?.carbon.eui_source || fallback?.ghg_source || "",
-  );
-  const sourceTier = ghgConfidenceTier(euiSource);
-  const ghgValue =
-    signals?.carbon.estimated_ghg_metric_tons ?? fallback?.ghg ?? null;
   const violations = detail?.records.violations ?? [];
 
   if (loading) {
     return (
-      <div style={styles.card} role="dialog" aria-label="Building insight loading" aria-busy="true">
+      <div style={styles.card} role="dialog" aria-label="Building brief loading" aria-busy="true">
         <div style={{ ...styles.accentBar, backgroundColor: accent }} />
-        <p style={styles.loadingEyebrow}>Loading building intelligence…</p>
-        <div style={styles.skeletonBlock} />
-        <div style={styles.skeletonBlockShort} />
-        <div style={styles.skeletonRow}>
-          <div style={styles.skeletonChip} />
-          <div style={styles.skeletonChip} />
-        </div>
+        <p style={styles.loadingEyebrow}>Loading intelligence brief…</p>
+        <div style={styles.skeletonHero} />
         <div style={styles.skeletonGrid}>
           <div style={styles.skeletonMetric} />
           <div style={styles.skeletonMetric} />
           <div style={styles.skeletonMetric} />
           <div style={styles.skeletonMetric} />
-          <div style={{ ...styles.skeletonMetric, gridColumn: "1 / -1" }} />
         </div>
-        <div style={styles.skeletonFooter} />
+        <div style={styles.skeletonBlock} />
       </div>
     );
   }
@@ -125,7 +109,7 @@ export function BuildingInsightCard({
       !error ||
       error.toLowerCase().includes("no building detail found");
     return (
-      <div style={styles.card} role="dialog" aria-label="Building insight unavailable">
+      <div style={styles.card} role="dialog" aria-label="Building brief unavailable">
         <button type="button" onClick={onClose} style={styles.closeButton} aria-label="Close">
           ×
         </button>
@@ -133,7 +117,7 @@ export function BuildingInsightCard({
         <p style={styles.errorTitle}>No building detail found</p>
         <p style={styles.errorBody}>
           {isNoData
-            ? `BIN ${bin} is not in the current Queens dataset, or the API returned an empty profile.`
+            ? `BIN ${bin} is not in the current NYC dataset, or the API returned an empty profile.`
             : error}
         </p>
         <p style={styles.errorHint}>
@@ -150,14 +134,15 @@ export function BuildingInsightCard({
     );
   }
 
+  const address = String(building.full_address || fallback?.address || `BIN ${bin}`);
+  const borough = formatBoroughLabel(building.borough);
+  const isDemo = bin === DEMO_BIN;
   const riskScore = signals.risk.score ?? fallback?.risk_score ?? null;
-  const riskDrivers = signals.risk.drivers.slice(0, RISK_DRIVER_DISPLAY_CAP);
+  const euiSource = String(signals.carbon.eui_source || fallback?.ghg_source || "");
+  const ghgValue = signals.carbon.estimated_ghg_metric_tons ?? fallback?.ghg ?? null;
 
   const returnedViolationCount = signals.compliance.violation_count_returned;
-  const displayedViolationCount = Math.min(
-    violations.length,
-    VIOLATION_DISPLAY_CAP,
-  );
+  const displayedViolationCount = Math.min(violations.length, VIOLATION_DISPLAY_CAP);
   const totalViolationCount = resolveViolationTotal(
     fallback,
     building,
@@ -165,205 +150,187 @@ export function BuildingInsightCard({
   );
 
   const asbestosRecords = detail?.records.asbestos ?? [];
-  const returnedAsbestosProjectCount = signals.asbestos.project_count_returned;
-  const displayedAsbestosRecordCount = Math.min(
-    asbestosRecords.length,
-    VIOLATION_DISPLAY_CAP,
-  );
-  const totalAsbestosProjectCount = resolveAsbestosProjectTotal(
-    fallback,
-    building,
-    returnedAsbestosProjectCount,
-  );
+  const returnedAsbestosFilings = asbestosRecords.length;
   const totalAsbestosViolationFlags = resolveAsbestosViolationFlags(
     fallback,
     signals.compliance.asbestos_related_violation_count_returned,
   );
-  const hasAsbestosSignal =
-    signals.asbestos.has_asbestos_signal ||
-    totalAsbestosProjectCount > 0 ||
-    totalAsbestosViolationFlags > 0;
 
+  const risk = riskSignalValue(riskScore, RISK_LABELS[riskLabel]);
+  const carbon = carbonSignalValue(ghgValue, euiSource);
   const compliance = complianceSignalLine(totalViolationCount);
-  const asbestos = asbestosSignalLine(
-    hasAsbestosSignal,
-    totalAsbestosProjectCount,
-    totalAsbestosViolationFlags,
+  const asbestos = asbestosBrief(totalAsbestosViolationFlags, returnedAsbestosFilings);
+  const confidence = confidenceBrief(
+    signals.data_completeness,
+    signals.risk.confidence,
   );
+  const whyFlagged = whyFlaggedSentence(riskLabel, signals.risk.drivers, riskScore);
   const violationCapNote = formatRecordCapNote(
     displayedViolationCount,
     totalViolationCount,
     "violation records",
   );
-  const asbestosCapNote = formatRecordCapNote(
-    displayedAsbestosRecordCount,
-    totalAsbestosProjectCount,
-    "asbestos records",
-  );
-  const completeness = dataCompletenessLine(
-    signals.data_completeness,
-    signals.risk.confidence,
-  );
   const visibleViolations = violations.slice(0, VIOLATION_DISPLAY_CAP);
-  const metaLine = buildingMetaLine(building, bin);
-  const isDemo = bin === DEMO_BIN;
-  const carbonBadge = ghgConfidenceLabel(euiSource);
 
   return (
-    <div style={styles.card} role="dialog" aria-label="Building insight">
+    <div style={styles.card} role="dialog" aria-label="Building intelligence brief">
       <button type="button" onClick={onClose} style={styles.closeButton} aria-label="Close">
         ×
       </button>
       <div style={{ ...styles.accentBar, backgroundColor: accent }} />
 
-      {isDemo && <span style={styles.demoChip}>Demo building</span>}
-      <h2 style={styles.address}>{address}</h2>
-      <p style={styles.metaLine}>{metaLine}</p>
+      <header style={styles.header}>
+        {isDemo && <span style={styles.demoChip}>Demo</span>}
+        <h2 style={styles.address}>{address}</h2>
+        <p style={styles.metaLine}>
+          {borough} · BIN {bin}
+        </p>
+      </header>
 
-      <div style={styles.riskHero}>
-        <div style={styles.riskScoreBlock}>
-          <span style={styles.riskScoreValue}>
-            {riskScore != null ? riskScore : "—"}
-          </span>
-          <span style={styles.riskScoreUnit}>risk score</span>
-        </div>
-        <span
-          style={{
-            ...styles.riskLabelBadge,
-            backgroundColor: `${accent}22`,
-            color: accent,
-            borderColor: `${accent}55`,
-          }}
-        >
-          {RISK_LABELS[riskLabel]}
-        </span>
-      </div>
-
-      {riskDrivers.length > 0 && (
-        <div style={styles.driverSection}>
-          <p style={styles.driverTitle}>Top drivers</p>
-          <div style={styles.driverList}>
-            {riskDrivers.map((driver) => (
-              <span key={driver} style={styles.driverChip}>
-                {driver}
-              </span>
-            ))}
+      <section style={styles.hero} aria-label="Risk summary">
+        <div style={styles.heroTop}>
+          <div style={styles.heroScoreBlock}>
+            <span style={styles.heroScore}>{risk.value}</span>
+            <span style={styles.heroScoreUnit}>risk score</span>
           </div>
-        </div>
-      )}
-
-      <div style={styles.signalStrip}>
-        <SignalRow label="Carbon">
-          <span style={styles.carbonValue}>{formatGhg(ghgValue)}</span>
-          <span style={{ ...styles.inlineBadge, ...TIER_STYLES[sourceTier] }}>
-            {carbonBadge}
+          <span
+            style={{
+              ...styles.heroBadge,
+              backgroundColor: `${accent}22`,
+              color: accent,
+              borderColor: `${accent}55`,
+            }}
+          >
+            {RISK_LABELS[riskLabel]}
           </span>
-        </SignalRow>
+        </div>
+        <p style={styles.whyFlagged}>{whyFlagged}</p>
+      </section>
 
-        <SignalRow label="Compliance">
-          <span style={styles.signalPrimary}>{compliance.value}</span>
-          <span style={styles.signalHint}>{compliance.hint}</span>
-        </SignalRow>
+      <section style={styles.signalGrid} aria-label="Four signals">
+        <SignalCard title="Risk" value={risk.value} hint={risk.hint} />
+        <SignalCard
+          title="Carbon"
+          value={carbon.value}
+          badge={carbon.badge}
+          badgeStyle={TIER_STYLES[carbon.tier]}
+        />
+        <SignalCard title="Compliance" value={compliance.value} hint={compliance.hint} />
+        <SignalCard title="Asbestos" value={asbestos.value} hint={asbestos.hint} />
+      </section>
 
-        <SignalRow label="Asbestos">
-          <span style={styles.signalPrimary}>{asbestos.value}</span>
-          <span style={styles.inlineBadgeMuted}>{asbestos.chip}</span>
-          {asbestosCapNote && (
-            <span style={styles.signalHint}>{asbestosCapNote}</span>
-          )}
-        </SignalRow>
+      <section style={styles.confidenceBlock} aria-label="Data confidence">
+        <span style={styles.confidenceLabel}>{confidence.label}</span>
+        <span style={styles.confidenceDetail}>{confidence.detail}</span>
+      </section>
 
-        <SignalRow label="Confidence">
-          <span style={styles.signalPrimary}>{completeness.value}</span>
-          <span style={styles.signalHint}>{completeness.chip}</span>
-        </SignalRow>
-      </div>
+      <section style={styles.evidenceSection} aria-label="Evidence">
+        <h3 style={styles.sectionTitle}>Evidence</h3>
 
-      {visibleViolations.length > 0 && (
-        <section style={styles.section}>
-          <h3 style={styles.sectionTitle}>
-            Recent violations
-            <span style={styles.countBadge}>
-              {displayedViolationCount}
+        {visibleViolations.length > 0 ? (
+          <>
+            <p style={styles.evidenceLead}>
+              Violations
               {totalViolationCount > displayedViolationCount
-                ? ` of ${totalViolationCount}`
-                : ""}
-            </span>
-          </h3>
+                ? ` · ${displayedViolationCount} of ${totalViolationCount}`
+                : ` · ${totalViolationCount}`}
+            </p>
+            <ul style={styles.violationList}>
+              {visibleViolations.map((v, i) => (
+                <ViolationRow key={`${v.source_dataset}-${v.issue_date}-${i}`} violation={v} />
+              ))}
+            </ul>
+            {violationCapNote && <p style={styles.capNote}>{violationCapNote}</p>}
+          </>
+        ) : (
+          <p style={styles.emptyEvidence}>No violation records in the returned sample.</p>
+        )}
+
+        <p style={{ ...styles.evidenceLead, marginTop: 12 }}>Asbestos</p>
+        {returnedAsbestosFilings > 0 ? (
           <ul style={styles.violationList}>
-            {visibleViolations.map((v, i) => (
-              <ViolationRow key={`${v.source_dataset}-${v.issue_date}-${i}`} violation={v} />
+            {asbestosRecords.slice(0, VIOLATION_DISPLAY_CAP).map((record, i) => (
+              <AsbestosRow key={`asbestos-${i}`} record={record} />
             ))}
           </ul>
-          {violationCapNote && (
-            <p style={styles.capNote}>
-              {violationCapNote} — full history on building page.
-            </p>
-          )}
-        </section>
-      )}
+        ) : (
+          <p style={styles.emptyEvidence}>
+            No known asbestos filings in current dataset
+          </p>
+        )}
+      </section>
 
-      <div style={styles.footer}>
-        <p style={styles.bin}>BIN {bin}</p>
+      <footer style={styles.footer}>
         <a href={`/building/${bin}`} style={styles.detailLink}>
           Full profile →
         </a>
-      </div>
+      </footer>
     </div>
   );
 }
 
-function SignalRow({
-  label,
-  children,
+function SignalCard({
+  title,
+  value,
+  hint,
+  badge,
+  badgeStyle,
 }: {
-  label: string;
-  children: ReactNode;
+  title: string;
+  value: string;
+  hint?: string;
+  badge?: string;
+  badgeStyle?: CSSProperties;
 }) {
   return (
-    <div style={styles.signalRow}>
-      <span style={styles.signalRowLabel}>{label}</span>
-      <div style={styles.signalRowBody}>{children}</div>
+    <div style={styles.signalCard}>
+      <span style={styles.signalTitle}>{title}</span>
+      <div style={styles.signalValueRow}>
+        <span style={styles.signalValue}>{value}</span>
+        {badge && (
+          <span style={{ ...styles.signalBadge, ...badgeStyle }}>{badge}</span>
+        )}
+      </div>
+      {hint && <span style={styles.signalHint}>{hint}</span>}
     </div>
   );
 }
 
 function ViolationRow({ violation }: { violation: ViolationRecord }) {
-  const source = violation.source_dataset?.trim();
-  const issueDate = violation.issue_date?.trim();
-  const violationClass = violation.violation_class?.trim();
-  const status = violation.current_status?.trim();
+  const agency = violation.source_dataset?.trim();
+  const issueDate = violation.issue_date?.trim()?.slice(0, 10);
   const description = violation.violation_description?.trim();
-  const isOpen =
-    status &&
-    (status.toUpperCase().includes("OPEN") || status.toUpperCase().includes("ACTIVE"));
-  const hasTopRow = Boolean(source || issueDate);
-  const hasMetaRow = Boolean(violationClass || status);
+  const status = violation.current_status?.trim();
 
   return (
-    <li style={styles.violationItem}>
-      {hasTopRow && (
-        <div style={styles.violationTop}>
-          {source && <span style={styles.violationSource}>{source}</span>}
-          {issueDate && (
-            <span style={styles.violationDate}>{issueDate.slice(0, 10)}</span>
-          )}
-        </div>
-      )}
-      {hasMetaRow && (
-        <div style={styles.violationMeta}>
-          {violationClass && <span>{violationClass}</span>}
-          {status && (
-            <span style={isOpen ? styles.statusOpen : styles.statusMuted}>{status}</span>
-          )}
-        </div>
-      )}
+    <li style={styles.evidenceItem}>
+      <div style={styles.evidenceTop}>
+        {agency && <span style={styles.evidenceAgency}>{agency}</span>}
+        {issueDate && <span style={styles.evidenceDate}>{issueDate}</span>}
+      </div>
       {description && (
-        <p style={styles.violationDesc}>
+        <p style={styles.evidenceDesc}>
           {violation.is_asbestos_related ? "⚠ " : ""}
-          {description.slice(0, 120)}
+          {description.slice(0, 100)}
         </p>
       )}
+      {status && <span style={styles.evidenceStatus}>{status}</span>}
+    </li>
+  );
+}
+
+function AsbestosRow({ record }: { record: Record<string, unknown> }) {
+  const status = String(record.project_status || "").trim();
+  const date = String(record.project_start_date || "").trim().slice(0, 10);
+  const control = String(record.control_number || "").trim();
+
+  return (
+    <li style={styles.evidenceItem}>
+      <div style={styles.evidenceTop}>
+        {control && <span style={styles.evidenceAgency}>Filing {control}</span>}
+        {date && <span style={styles.evidenceDate}>{date}</span>}
+      </div>
+      {status && <span style={styles.evidenceStatus}>{status}</span>}
     </li>
   );
 }
@@ -371,19 +338,19 @@ function ViolationRow({ violation }: { violation: ViolationRecord }) {
 const styles: Record<string, CSSProperties> = {
   card: {
     position: "absolute",
-    top: 52,
+    top: 48,
     right: 10,
-    width: 392,
+    width: 400,
     maxWidth: "calc(100% - 20px)",
     maxHeight: "calc(100% - 64px)",
     overflowY: "auto",
-    background: "rgba(14, 17, 22, 0.96)",
-    backdropFilter: "blur(16px)",
+    background: "rgba(12, 15, 20, 0.97)",
+    backdropFilter: "blur(18px)",
     borderRadius: 14,
-    border: "1px solid rgba(255, 255, 255, 0.07)",
-    boxShadow: "0 24px 60px rgba(0, 0, 0, 0.5)",
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+    boxShadow: "0 20px 56px rgba(0, 0, 0, 0.55)",
     color: "#E8ECF0",
-    padding: "18px 20px 16px",
+    padding: "16px 18px 14px",
     zIndex: 12,
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -398,8 +365,8 @@ const styles: Record<string, CSSProperties> = {
   },
   closeButton: {
     position: "absolute",
-    top: 10,
-    right: 12,
+    top: 8,
+    right: 10,
     background: "transparent",
     border: "none",
     color: "#8B949E",
@@ -408,181 +375,166 @@ const styles: Record<string, CSSProperties> = {
     cursor: "pointer",
     padding: "4px 8px",
   },
+  header: { marginBottom: 12 },
   demoChip: {
     display: "inline-block",
-    marginBottom: 8,
-    padding: "3px 8px",
+    marginBottom: 6,
+    padding: "2px 7px",
     borderRadius: 999,
-    fontSize: 10,
-    fontWeight: 600,
-    letterSpacing: "0.04em",
+    fontSize: 9,
+    fontWeight: 700,
+    letterSpacing: "0.06em",
     textTransform: "uppercase" as const,
     background: "rgba(110, 207, 196, 0.14)",
     color: "#6ECFC4",
     border: "1px solid rgba(110, 207, 196, 0.28)",
   },
-  eyebrow: {
-    margin: "0 0 4px",
-    fontSize: 11,
-    letterSpacing: "0.07em",
-    textTransform: "uppercase" as const,
-    color: "#7D8794",
-  },
   address: {
-    margin: "0 0 6px",
-    fontSize: 18,
+    margin: "0 0 4px",
+    fontSize: 17,
     fontWeight: 600,
     lineHeight: 1.3,
     color: "#F2F5F8",
   },
   metaLine: {
-    margin: "0 0 14px",
+    margin: 0,
     fontSize: 11,
     color: "#7D8794",
-    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
   },
-  riskHero: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
+  hero: {
     marginBottom: 12,
     padding: "12px 14px",
     borderRadius: 12,
-    background: "rgba(255, 255, 255, 0.03)",
+    background: "rgba(255, 255, 255, 0.035)",
     border: "1px solid rgba(255, 255, 255, 0.06)",
   },
-  riskScoreBlock: {
+  heroTop: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 8,
+  },
+  heroScoreBlock: {
     display: "flex",
     flexDirection: "column" as const,
     gap: 2,
   },
-  riskScoreValue: {
-    fontSize: 32,
+  heroScore: {
+    fontSize: 34,
     fontWeight: 700,
     lineHeight: 1,
     color: "#F2F5F8",
     fontVariantNumeric: "tabular-nums",
   },
-  riskScoreUnit: {
+  heroScoreUnit: {
     fontSize: 10,
     letterSpacing: "0.06em",
     textTransform: "uppercase" as const,
     color: "#7D8794",
   },
-  riskLabelBadge: {
-    fontSize: 12,
+  heroBadge: {
+    fontSize: 11,
     fontWeight: 600,
-    padding: "6px 10px",
+    padding: "5px 9px",
     borderRadius: 999,
     border: "1px solid",
     whiteSpace: "nowrap" as const,
   },
-  driverSection: {
-    marginBottom: 12,
+  whyFlagged: {
+    margin: 0,
+    fontSize: 12,
+    lineHeight: 1.45,
+    color: "#B8C2CC",
   },
-  driverTitle: {
+  signalGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 8,
+    marginBottom: 10,
+  },
+  signalCard: {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: 4,
+    padding: "9px 10px",
+    borderRadius: 10,
+    background: "rgba(255, 255, 255, 0.025)",
+    border: "1px solid rgba(255, 255, 255, 0.05)",
+    minHeight: 72,
+  },
+  signalTitle: {
+    fontSize: 9,
+    fontWeight: 600,
+    letterSpacing: "0.07em",
+    textTransform: "uppercase" as const,
+    color: "#7D8794",
+  },
+  signalValueRow: {
+    display: "flex",
+    flexWrap: "wrap" as const,
+    alignItems: "center",
+    gap: "4px 6px",
+  },
+  signalValue: {
+    fontSize: 13,
+    fontWeight: 600,
+    color: "#E8ECF0",
+    lineHeight: 1.25,
+  },
+  signalBadge: {
+    fontSize: 9,
+    fontWeight: 600,
+    padding: "2px 6px",
+    borderRadius: 999,
+    whiteSpace: "nowrap" as const,
+  },
+  signalHint: {
+    fontSize: 10,
+    lineHeight: 1.35,
+    color: "#9AA5B1",
+  },
+  confidenceBlock: {
+    display: "flex",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 12,
+    padding: "8px 10px",
+    borderRadius: 10,
+    background: "rgba(110, 207, 196, 0.06)",
+    border: "1px solid rgba(110, 207, 196, 0.12)",
+  },
+  confidenceLabel: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: "#6ECFC4",
+  },
+  confidenceDetail: {
+    fontSize: 10,
+    color: "#9AA5B1",
+    textAlign: "right" as const,
+  },
+  evidenceSection: { marginBottom: 8 },
+  sectionTitle: {
+    margin: "0 0 8px",
+    fontSize: 9,
+    fontWeight: 600,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase" as const,
+    color: "#7D8794",
+  },
+  evidenceLead: {
     margin: "0 0 6px",
     fontSize: 10,
     fontWeight: 600,
-    letterSpacing: "0.06em",
-    textTransform: "uppercase" as const,
-    color: "#7D8794",
-  },
-  signalStrip: {
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: 8,
-    marginBottom: 12,
-  },
-  signalRow: {
-    display: "grid",
-    gridTemplateColumns: "88px 1fr",
-    gap: 10,
-    alignItems: "start",
-    padding: "8px 10px",
-    borderRadius: 10,
-    background: "rgba(255, 255, 255, 0.025)",
-    border: "1px solid rgba(255, 255, 255, 0.04)",
-  },
-  signalRowLabel: {
-    fontSize: 10,
-    color: "#7D8794",
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.05em",
-    paddingTop: 2,
-  },
-  signalRowBody: {
-    display: "flex",
-    flexWrap: "wrap" as const,
-    alignItems: "center",
-    gap: "6px 8px",
-    minWidth: 0,
-  },
-  carbonValue: {
-    fontSize: 13,
-    fontWeight: 600,
-    color: "#E8ECF0",
-  },
-  signalPrimary: {
-    fontSize: 13,
-    fontWeight: 600,
-    color: "#E8ECF0",
-  },
-  signalHint: {
-    fontSize: 11,
     color: "#9AA5B1",
-    lineHeight: 1.35,
   },
-  inlineBadge: {
-    fontSize: 10,
-    fontWeight: 600,
-    padding: "3px 8px",
-    borderRadius: 999,
-    whiteSpace: "nowrap" as const,
-  },
-  inlineBadgeMuted: {
-    fontSize: 10,
-    fontWeight: 500,
-    padding: "3px 8px",
-    borderRadius: 999,
-    background: "rgba(107, 117, 128, 0.14)",
-    color: "#B8C2CC",
-    whiteSpace: "nowrap" as const,
-  },
-  driverList: {
-    display: "flex",
-    flexWrap: "wrap" as const,
-    gap: 6,
-    marginBottom: 12,
-  },
-  driverChip: {
+  emptyEvidence: {
+    margin: "0 0 4px",
     fontSize: 11,
-    lineHeight: 1.35,
-    padding: "5px 8px",
-    borderRadius: 8,
-    background: "rgba(255, 255, 255, 0.04)",
-    color: "#B8C2CC",
-    border: "1px solid rgba(255, 255, 255, 0.05)",
-  },
-  section: { marginBottom: 10 },
-  sectionTitle: {
-    margin: "0 0 8px",
-    fontSize: 10,
-    fontWeight: 600,
-    letterSpacing: "0.06em",
-    textTransform: "uppercase" as const,
     color: "#7D8794",
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-  },
-  countBadge: {
-    fontSize: 10,
-    fontWeight: 500,
-    color: "#9AA5B1",
-    textTransform: "none" as const,
-    letterSpacing: 0,
+    lineHeight: 1.4,
   },
   violationList: {
     listStyle: "none",
@@ -590,65 +542,51 @@ const styles: Record<string, CSSProperties> = {
     padding: 0,
     display: "flex",
     flexDirection: "column" as const,
-    gap: 8,
+    gap: 6,
   },
-  violationItem: {
-    padding: "8px 10px",
+  evidenceItem: {
+    padding: "7px 9px",
     borderRadius: 8,
-    background: "rgba(255, 255, 255, 0.03)",
-    border: "1px solid rgba(255, 255, 255, 0.05)",
+    background: "rgba(255, 255, 255, 0.025)",
+    border: "1px solid rgba(255, 255, 255, 0.04)",
   },
-  violationTop: {
+  evidenceTop: {
     display: "flex",
     justifyContent: "space-between",
     gap: 8,
-    marginBottom: 4,
+    marginBottom: 3,
   },
-  violationSource: {
-    fontSize: 11,
+  evidenceAgency: {
+    fontSize: 10,
     fontWeight: 600,
     color: "#CDD5DE",
   },
-  violationDate: {
+  evidenceDate: {
     fontSize: 10,
     color: "#7D8794",
   },
-  violationMeta: {
-    display: "flex",
-    gap: 8,
-    fontSize: 10,
-    color: "#9AA5B1",
-    marginBottom: 4,
-  },
-  statusOpen: { color: "#E8B4B4" },
-  statusMuted: { color: "#7D8794" },
-  violationDesc: {
-    margin: 0,
+  evidenceDesc: {
+    margin: "0 0 3px",
     fontSize: 11,
-    lineHeight: 1.45,
+    lineHeight: 1.4,
     color: "#B8C2CC",
   },
+  evidenceStatus: {
+    fontSize: 10,
+    color: "#9AA5B1",
+  },
   capNote: {
-    margin: "8px 0 0",
+    margin: "6px 0 0",
     fontSize: 10,
     color: "#7D8794",
   },
   footer: {
     display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    marginTop: 4,
-    flexWrap: "wrap" as const,
-  },
-  bin: {
-    margin: 0,
-    fontSize: 11,
-    color: "#5C6670",
-    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+    justifyContent: "flex-end",
+    marginTop: 6,
   },
   detailLink: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 500,
     color: "#6ECFC4",
     textDecoration: "none",
@@ -658,33 +596,10 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 12,
     color: "#9AA5B1",
   },
-  skeletonBlock: {
-    height: 18,
-    width: "70%",
-    borderRadius: 6,
-    marginBottom: 10,
-    background: "linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%)",
-    backgroundSize: "200% 100%",
-    animation: "cs-skeleton 1.4s ease infinite",
-  },
-  skeletonBlockShort: {
-    height: 14,
-    width: "48%",
-    borderRadius: 6,
-    marginBottom: 14,
-    background: "linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%)",
-    backgroundSize: "200% 100%",
-    animation: "cs-skeleton 1.4s ease infinite",
-  },
-  skeletonRow: {
-    display: "flex",
-    gap: 8,
+  skeletonHero: {
+    height: 88,
+    borderRadius: 12,
     marginBottom: 12,
-  },
-  skeletonChip: {
-    height: 24,
-    width: 90,
-    borderRadius: 999,
     background: "linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%)",
     backgroundSize: "200% 100%",
     animation: "cs-skeleton 1.4s ease infinite",
@@ -693,19 +608,18 @@ const styles: Record<string, CSSProperties> = {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
     gap: 8,
+    marginBottom: 12,
   },
   skeletonMetric: {
-    height: 64,
+    height: 72,
     borderRadius: 10,
     background: "linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%)",
     backgroundSize: "200% 100%",
     animation: "cs-skeleton 1.4s ease infinite",
   },
-  skeletonFooter: {
-    marginTop: 14,
-    height: 12,
-    width: "36%",
-    borderRadius: 6,
+  skeletonBlock: {
+    height: 48,
+    borderRadius: 10,
     background: "linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%)",
     backgroundSize: "200% 100%",
     animation: "cs-skeleton 1.4s ease infinite",
@@ -720,7 +634,6 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 12,
     fontWeight: 600,
     cursor: "pointer",
-    alignSelf: "flex-start",
   },
   errorTitle: {
     margin: "8px 0 6px",

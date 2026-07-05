@@ -311,15 +311,7 @@ export function CarbonMap() {
 
       {isLoading && (
         <div style={styles.loadingOverlay} aria-live="polite" aria-busy="true">
-          <div style={styles.loadingGrid} aria-hidden>
-            {Array.from({ length: 12 }, (_, i) => (
-              <div key={i} style={styles.loadingGridCell} />
-            ))}
-          </div>
-          <p style={styles.loadingTitle}>Loading NYC building risk layer…</p>
-          <p style={styles.loadingText}>
-            Pulling scored footprints from the API — the map stays interactive underneath.
-          </p>
+          <p style={styles.loadingTitle}>Loading building risk layer…</p>
           <div style={styles.loadingBar} aria-hidden />
         </div>
       )}
@@ -330,12 +322,8 @@ export function CarbonMap() {
           <p style={styles.errorText}>
             {loadError || "The building layer could not be loaded."}
           </p>
-          <p style={styles.errorHint}>
-            Start Flask with <code style={styles.inlineCode}>python web.py</code>, confirm
-            Supabase credentials in <code style={styles.inlineCode}>.env</code>, then retry.
-          </p>
           <button type="button" style={styles.retryButton} onClick={handleRetry}>
-            Retry load
+            Retry
           </button>
         </div>
       )}
@@ -386,7 +374,7 @@ const styles: Record<string, CSSProperties> = {
     inset: 0,
     pointerEvents: "none",
     background:
-      "radial-gradient(ellipse at center, transparent 40%, rgba(8, 10, 14, 0.55) 100%)",
+      "radial-gradient(ellipse at center, transparent 55%, rgba(8, 10, 14, 0.35) 100%)",
     zIndex: 1,
   },
   loadingOverlay: {
@@ -397,29 +385,12 @@ const styles: Record<string, CSSProperties> = {
     flexDirection: "column" as const,
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
-    background: "rgba(8, 10, 14, 0.78)",
-    backdropFilter: "blur(8px)",
+    gap: 8,
+    background: "rgba(8, 10, 14, 0.65)",
+    backdropFilter: "blur(4px)",
     pointerEvents: "none",
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  },
-  loadingGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(4, 44px)",
-    gap: 6,
-    marginBottom: 8,
-    opacity: 0.55,
-  },
-  loadingGridCell: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    border: "1px solid rgba(255, 255, 255, 0.04)",
-    background:
-      "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.03) 100%)",
-    backgroundSize: "200% 200%",
-    animation: "cs-skeleton 1.6s ease infinite",
   },
   loadingBar: {
     width: 160,
@@ -433,15 +404,10 @@ const styles: Record<string, CSSProperties> = {
   },
   loadingTitle: {
     margin: 0,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 600,
     color: "#DDE3EA",
     letterSpacing: "0.01em",
-  },
-  loadingText: {
-    margin: 0,
-    fontSize: 12,
-    color: "#8B949E",
   },
   errorOverlay: {
     position: "absolute",
@@ -451,11 +417,11 @@ const styles: Record<string, CSSProperties> = {
     flexDirection: "column" as const,
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    padding: 24,
+    gap: 10,
+    padding: 20,
     textAlign: "center" as const,
-    background: "rgba(8, 10, 14, 0.88)",
-    backdropFilter: "blur(8px)",
+    background: "rgba(8, 10, 14, 0.82)",
+    backdropFilter: "blur(6px)",
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   },
@@ -471,18 +437,6 @@ const styles: Record<string, CSSProperties> = {
     color: "#B8C2CC",
     maxWidth: 360,
     lineHeight: 1.5,
-  },
-  errorHint: {
-    margin: 0,
-    fontSize: 11,
-    color: "#7D8794",
-    maxWidth: 380,
-    lineHeight: 1.45,
-  },
-  inlineCode: {
-    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-    fontSize: "0.95em",
-    color: "#9AA5B1",
   },
   retryButton: {
     marginTop: 8,

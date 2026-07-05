@@ -46,7 +46,7 @@ export function ghgConfidenceDetail(source: string): string {
     return "Modeled from peer buildings with the same PLUTO class — medium confidence.";
   }
   if (source === "borough_median") {
-    return "Modeled from a Queens-wide median — lower confidence than class peers.";
+    return "Modeled from a borough-wide median — lower confidence than class peers.";
   }
   if (!source) {
     return "No emissions source on record for this building.";
@@ -154,6 +154,173 @@ export function formatGhg(ghg: number | null): string {
 export function formatBuildingArea(sqFt: number | null): string {
   if (sqFt == null || sqFt <= 0) return "—";
   return `${Math.round(sqFt).toLocaleString()} sq ft`;
+}
+
+export function formatBoroughLabel(borough: unknown): string {
+  const raw = String(borough || "").trim();
+  if (!raw) return "NYC";
+  const lower = raw.toLowerCase();
+  if (lower === "qn" || lower === "queens") return "Queens";
+  if (lower === "mn" || lower === "manhattan") return "Manhattan";
+  if (lower === "bk" || lower === "brooklyn") return "Brooklyn";
+  if (lower === "bx" || lower === "bronx") return "Bronx";
+  if (lower === "si" || lower === "staten island") return "Staten Island";
+  return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+}
+
+/** Parse scoring weight from strings like "pre-1940 (+3)" or "12 open violations (+8)". */
+export function parseDriverPoints(driver: string): number | null {
+  const match = driver.match(/\(\+(\d+)\)/);
+  if (!match) return null;
+  const points = Number.parseInt(match[1], 10);
+  return Number.isFinite(points) ? points : null;
+}
+
+/** Pick the highest-weight driver without mutating the input array. */
+export function selectTopRiskDriver(drivers: string[]): string | null {
+  const candidates = drivers.map((d) => d.trim()).filter(Boolean);
+  if (!candidates.length) return null;
+
+  let topDriver: string | null = null;
+  let topPoints = -Infinity;
+
+  for (const driver of candidates) {
+    const points = parseDriverPoints(driver);
+    if (points == null) continue;
+    if (points > topPoints) {
+      topPoints = points;
+      topDriver = driver;
+    }
+  }
+
+  return topDriver ?? candidates[0];
+}
+
+function formatDriverHeadline(driver: string): string {
+  return driver.replace(/\s*\(\+\d+\)\s*$/, "").trim();
+}
+
+export function whyFlaggedSentence(
+  riskLabel: string,
+  drivers: string[],
+  riskScore: number | null,
+): string {
+  const lead = selectTopRiskDriver(drivers);
+  if (lead) return formatDriverHeadline(lead);
+
+  switch (riskLabel) {
+    case "Critical":
+      return "Multiple enforcement and emissions signals exceed critical thresholds.";
+    case "High":
+      return "Elevated risk score driven by compliance history and building profile.";
+    case "Moderate":
+      return "Mixed compliance and profile signals warrant closer review.";
+    case "Low":
+      return "Fewer enforcement signals than peer buildings in this sample.";
+    default:
+      return riskScore != null
+        ? "Insufficient inputs to explain this score in plain language."
+        : "Risk score not available for this building yet.";
+  }
+}
+
+export function confidenceBrief(
+  completeness: {
+    has_location: boolean;
+    has_profile: boolean;
+    has_risk_score: boolean;
+    has_carbon_estimate: boolean;
+  },
+  riskConfidence: string | null | undefined,
+): { label: string; detail: string } {
+  const flags = [
+    completeness.has_location,
+    completeness.has_profile,
+    completeness.has_risk_score,
+    completeness.has_carbon_estimate,
+  ];
+  const present = flags.filter(Boolean).length;
+  const conf = (riskConfidence || "").trim().toLowerCase();
+
+  if (present <= 2) {
+    return {
+      label: "Limited data",
+      detail: `${present} of 4 core inputs on file`,
+    };
+  }
+  if (conf.includes("high") || present === 4) {
+    return {
+      label: "High confidence",
+      detail: present === 4 ? "Location, profile, risk, and carbon scored" : "Strong scoring inputs",
+    };
+  }
+  if (conf.includes("medium") || conf.includes("moderate") || present === 3) {
+    return {
+      label: "Medium confidence",
+      detail: `${present} of 4 core inputs on file`,
+    };
+  }
+  if (conf.includes("low")) {
+    return {
+      label: "Limited data",
+      detail: `${present} of 4 core inputs on file`,
+    };
+  }
+  return {
+    label: present >= 3 ? "Medium confidence" : "Limited data",
+    detail: `${present} of 4 core inputs on file`,
+  };
+}
+
+export function asbestosBrief(
+  violationFlags: number,
+  returnedFilings: number,
+): { value: string; hint: string } {
+  if (violationFlags <= 0 && returnedFilings <= 0) {
+    return {
+      value: "No known signal",
+      hint: "No known asbestos filings in current dataset",
+    };
+  }
+  const parts: string[] = [];
+  if (violationFlags > 0) {
+    parts.push(
+      `${violationFlags} flagged violation${violationFlags === 1 ? "" : "s"}`,
+    );
+  }
+  if (returnedFilings > 0) {
+    parts.push(
+      `${returnedFilings} filing${returnedFilings === 1 ? "" : "s"} in sample`,
+    );
+  }
+  return {
+    value: parts.join(" · "),
+    hint:
+      violationFlags > 0
+        ? "Asbestos-related enforcement on record"
+        : "Filings appear in returned sample only",
+  };
+}
+
+export function riskSignalValue(
+  score: number | null,
+  label: string,
+): { value: string; hint: string } {
+  return {
+    value: score != null ? String(score) : "—",
+    hint: label,
+  };
+}
+
+export function carbonSignalValue(
+  ghg: number | null,
+  source: string,
+): { value: string; badge: string; tier: ReturnType<typeof ghgConfidenceTier> } {
+  return {
+    value: formatGhg(ghg),
+    badge: ghgConfidenceLabel(source),
+    tier: ghgConfidenceTier(source),
+  };
 }
 
 export function complianceSignalLine(violationCount: number): {

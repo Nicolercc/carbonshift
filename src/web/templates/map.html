@@ -1,155 +1,80 @@
 {% extends "base.html" %}
-{% block title %}Explore Map — CarbonShift{% endblock %}
+{% block title %}CarbonShift — Building Risk Map{% endblock %}
 
 {% block content %}
-<script>document.body.classList.add("map-page");</script>
+<script>
+  document.documentElement.classList.add("map-page-root");
+  document.body.classList.add("map-page");
+</script>
 <style>
-  .map-page footer { display: none; }
-  .map-page .container { max-width: 100%; padding: 0 10px 10px; }
-  .map-page .navbar { margin-bottom: 0 !important; }
-  .map-page-shell { display: flex; gap: 10px; min-height: calc(100vh - 58px); }
-  .map-sidebar {
-    width: 220px;
-    flex-shrink: 0;
+  :root { --map-nav-height: 56px; }
+  html.map-page-root,
+  body.map-page {
+    overflow: hidden;
+    height: 100%;
+    background: #0a0c10 !important;
+  }
+  body.map-page {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding-top: 8px;
+    min-height: 100vh;
+    max-height: 100vh;
   }
-  .map-stage {
-    flex: 1;
-    min-width: 0;
-    padding-top: 8px;
+  .map-page footer { display: none; }
+  .map-page .navbar.cs-app-nav {
+    flex-shrink: 0;
+    min-height: var(--map-nav-height);
+    height: var(--map-nav-height);
   }
-  #carbon-map-root {
-    height: calc(100vh - 68px);
-    min-height: 680px;
-    border-radius: 12px;
-    border: 1px solid var(--cs-card-border);
-    overflow: hidden;
-    background: #0a0c10;
-    box-shadow: 0 12px 40px rgba(0,0,0,.18);
-  }
-  .map-signal-key {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-    margin-bottom: 10px;
-  }
-  .map-signal-key span {
-    font-size: .68rem;
-    font-weight: 600;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    color: var(--cs-section-color);
+  .map-page .navbar .container {
+    height: auto;
+    min-height: 0;
     display: flex;
     align-items: center;
-    gap: 5px;
   }
-  .map-signal-key i { color: #198754; font-size: .75rem; }
-  .confidence-compact {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    margin-bottom: 8px;
-  }
-  .confidence-pill {
-    font-size: .68rem;
-    padding: 3px 7px;
-    border-radius: 999px;
-    background: rgba(0,0,0,.04);
-    border: 1px solid var(--cs-card-border);
-  }
-  [data-bs-theme="dark"] .confidence-pill { background: rgba(255,255,255,.04); }
-  .map-sidebar .card-header {
-    font-size: .72rem;
-    padding: .5rem .75rem;
-  }
-  .map-sidebar .form-label {
-    font-size: .7rem;
-    margin-bottom: .2rem;
-    text-transform: uppercase;
-    letter-spacing: .04em;
-    color: var(--cs-section-color);
-  }
-  .map-demo-hint {
-    font-size: .68rem;
-    color: var(--cs-section-color);
-    line-height: 1.4;
+  .map-page .navbar-toggler { display: none; }
+  body.map-page > .container {
+    flex: 1;
+    min-height: 0;
+    max-width: 100%;
+    padding: 0;
     margin: 0;
+    width: 100%;
+    height: auto;
+    position: relative;
   }
-  @media (max-width: 991px) {
-    .map-page-shell { flex-direction: column; }
-    .map-sidebar { width: 100%; }
-    #carbon-map-root { height: 72vh; min-height: 480px; }
+  body.map-page > .container > .alert {
+    position: absolute;
+    top: 8px;
+    left: 12px;
+    right: 12px;
+    z-index: 30;
+    margin: 0;
+    font-size: 0.8rem;
+  }
+  .map-page-shell {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+  }
+  #carbon-map-root {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    border-radius: 0;
+    border: none;
+    overflow: hidden;
+    background: #0a0c10;
   }
 </style>
 
 <div class="map-page-shell">
-  <aside class="map-sidebar">
-    <div class="map-signal-key" aria-label="Map signals">
-      <span><i class="bi bi-shield-exclamation"></i>Risk</span>
-      <span><i class="bi bi-cloud-haze2"></i>Carbon</span>
-      <span><i class="bi bi-clipboard-check"></i>Compliance</span>
-      <span><i class="bi bi-exclamation-triangle"></i>Asbestos</span>
-    </div>
-    <div class="card">
-      <div class="card-header py-2"><i class="bi bi-funnel me-1"></i>Filters</div>
-      <div class="card-body py-2">
-        {% if confidence.total > 0 %}
-        <div class="confidence-compact">
-          <span class="confidence-pill"><strong>{{ "{:,}".format(confidence.measured) }}</strong> measured</span>
-          <span class="confidence-pill"><strong>{{ "{:,}".format(confidence.class_median) }}</strong> class</span>
-          <span class="confidence-pill"><strong>{{ "{:,}".format(confidence.borough_median) }}</strong> borough</span>
-        </div>
-        {% endif %}
-        <form method="get" action="/map">
-          <div class="mb-2">
-            <label class="form-label" for="fSearch">Search</label>
-            <input id="fSearch" name="q" class="form-control form-control-sm" placeholder="Address, BIN, zip"
-                   value="{{ q }}">
-          </div>
-          <div class="mb-2">
-            <label class="form-label" for="fZip">Zip</label>
-            <input id="fZip" name="zip" class="form-control form-control-sm" placeholder="11101"
-                   value="{{ filters.zip_code }}">
-          </div>
-          <div class="mb-2">
-            <label class="form-label" for="fRisk">Risk</label>
-            <select id="fRisk" name="risk" class="form-select form-select-sm">
-              <option value="">All</option>
-              <option value="Low" {% if filters.risk_label=='Low' %}selected{% endif %}>Low</option>
-              <option value="Moderate" {% if filters.risk_label=='Moderate' %}selected{% endif %}>Moderate</option>
-              <option value="High" {% if filters.risk_label=='High' %}selected{% endif %}>High</option>
-              <option value="Critical" {% if filters.risk_label=='Critical' %}selected{% endif %}>Critical</option>
-            </select>
-          </div>
-          <div class="mb-2">
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="fAsbestos" name="asbestos" value="1"
-                     {% if filters.has_asbestos %}checked{% endif %}>
-              <label class="form-check-label small" for="fAsbestos">Asbestos flags only</label>
-            </div>
-          </div>
-          <button class="btn btn-success btn-sm w-100" type="submit">Apply</button>
-          <a class="btn btn-outline-secondary btn-sm w-100 mt-1" href="/map">Clear</a>
-        </form>
-        <p class="map-demo-hint mt-2">
-          Demo: BIN 1063355 auto-opens.
-          <a href="/methodology">Confidence</a>
-        </p>
-      </div>
-    </div>
-  </aside>
-
-  <div class="map-stage">
-    <div id="carbon-map-root" class="carbon-map-island"></div>
-    {% if not map_bundle %}
-    <div class="alert alert-warning mt-2 mb-0 small">
-      Map bundle not found. Run <code>npm run build</code>.
-    </div>
-    {% endif %}
+  <div id="carbon-map-root" class="carbon-map-island"></div>
+  {% if not map_bundle %}
+  <div class="alert alert-warning m-2 small">
+    Map bundle not found. Run <code>npm run build</code>.
   </div>
+  {% endif %}
 </div>
 {% endblock %}
 

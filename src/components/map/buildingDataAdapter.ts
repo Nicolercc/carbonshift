@@ -193,7 +193,7 @@ export async function loadBuildings(): Promise<BuildingsLoadResult> {
 export function dataSourceLabel(source: MapDataSource): string {
   switch (source) {
     case "live":
-      return "Live Queens data";
+      return "Live NYC data";
     case "demo":
       return "Demo sample data";
     case "error":

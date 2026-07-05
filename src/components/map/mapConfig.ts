@@ -34,13 +34,25 @@ export const BUILDING_OUTLINE_LAYER_ID = "building-outline";
 export const SELECTED_BUILDING_LAYER_ID = "building-selected";
 
 export const initialMapView = {
-  center: [-73.794, 40.728] as [number, number],
-  zoom: 11.2,
-  pitch: 55,
-  bearing: -15,
+  center: [-73.986, 40.754] as [number, number],
+  zoom: 11.5,
+  pitch: 58,
+  bearing: -18,
 };
 
-/** Approximate Queens bounding box — useful for fitBounds / future data clipping. */
+/** Approximate Manhattan bounding box — default presentation viewport. */
+export const manhattanBounds: LngLatBoundsLike = [
+  [-74.02, 40.70],
+  [-73.93, 40.80],
+];
+
+/** Approximate NYC core bounds (Queens + Manhattan) — presentation viewport reference. */
+export const nycBounds: LngLatBoundsLike = [
+  [-74.02, 40.54],
+  [-73.7, 40.80],
+];
+
+/** Approximate Queens bounding box — data coverage reference. */
 export const queensBounds: LngLatBoundsLike = [
   [-73.962, 40.543],
   [-73.7, 40.802],

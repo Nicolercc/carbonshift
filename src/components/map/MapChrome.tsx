@@ -23,7 +23,7 @@ export function MapChrome({
     <div style={styles.bar}>
       {onDemoSelect && !isLoading && (
         <button type="button" style={styles.demoButton} onClick={onDemoSelect}>
-          Demo BIN
+          Demo {DEMO_BIN}
         </button>
       )}
       {!isLoading && !isError && (
@@ -51,21 +51,27 @@ export function MapChrome({
 const styles: Record<string, CSSProperties> = {
   bar: {
     position: "absolute",
-    top: 12,
-    right: 12,
+    top: 10,
+    right: 10,
     zIndex: 10,
     display: "flex",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
+    padding: "5px 7px",
+    borderRadius: 10,
+    background: "rgba(14, 17, 22, 0.86)",
+    backdropFilter: "blur(12px)",
+    border: "1px solid rgba(255, 255, 255, 0.07)",
+    boxShadow: "0 6px 24px rgba(0, 0, 0, 0.28)",
     pointerEvents: "auto",
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   },
   demoButton: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 600,
     letterSpacing: "0.02em",
-    padding: "7px 11px",
+    padding: "5px 9px",
     borderRadius: 8,
     border: "1px solid rgba(110, 207, 196, 0.3)",
     background: "rgba(110, 207, 196, 0.1)",
@@ -73,9 +79,9 @@ const styles: Record<string, CSSProperties> = {
     cursor: "pointer",
   },
   countBadge: {
-    fontSize: 13,
+    fontSize: 11,
     color: "#A8B2BD",
-    padding: "5px 10px",
+    padding: "4px 8px",
     borderRadius: 8,
     background: "rgba(14, 17, 22, 0.75)",
     border: "1px solid rgba(255, 255, 255, 0.06)",
@@ -83,12 +89,12 @@ const styles: Record<string, CSSProperties> = {
   sourceBadge: {
     display: "inline-flex",
     alignItems: "center",
-    gap: 6,
-    fontSize: 11,
+    gap: 5,
+    fontSize: 10,
     fontWeight: 500,
     letterSpacing: "0.03em",
     textTransform: "uppercase" as const,
-    padding: "5px 10px",
+    padding: "4px 8px",
     borderRadius: 8,
     border: "1px solid rgba(255, 255, 255, 0.08)",
   },

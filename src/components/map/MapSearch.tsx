@@ -45,7 +45,7 @@ export function MapSearch({ buildings, onSelect }: MapSearchProps) {
           aria-label="Search buildings"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search address, BIN, ZIP, class"
+          placeholder="Search address or BIN"
           style={styles.input}
         />
         {query && (
@@ -94,11 +94,11 @@ export function MapSearch({ buildings, onSelect }: MapSearchProps) {
 const styles: Record<string, CSSProperties> = {
   shell: {
     position: "absolute",
-    top: 12,
-    left: 12,
+    top: 10,
+    left: 10,
     zIndex: 11,
-    width: 420,
-    maxWidth: "calc(100vw - 48px)",
+    width: 300,
+    maxWidth: "calc(100vw - 180px)",
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     pointerEvents: "auto",
@@ -106,9 +106,9 @@ const styles: Record<string, CSSProperties> = {
   searchBox: {
     display: "flex",
     alignItems: "center",
-    gap: 10,
-    minHeight: 44,
-    padding: "0 12px",
+    gap: 8,
+    minHeight: 38,
+    padding: "0 10px",
     borderRadius: 12,
     background: "rgba(14, 17, 22, 0.9)",
     border: "1px solid rgba(255, 255, 255, 0.09)",

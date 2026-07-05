@@ -69,6 +69,48 @@
     footer { margin-top: 3rem; padding: 1.5rem 0; border-top: 1px solid var(--cs-footer-border);
              color: #6c757d; font-size: .85rem; }
 
+    /* ── Unified app nav (landing, map, and content pages) ─────── */
+    .cs-app-nav {
+      background: #0d1117 !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      min-height: 56px;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+    .cs-app-nav .container {
+      max-width: 100%;
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+    .cs-app-nav .navbar-brand {
+      font-size: 0.9rem;
+      letter-spacing: -0.02em;
+      font-weight: 700;
+    }
+    .cs-app-nav .nav-link {
+      font-size: 0.85rem;
+      padding: 0.35rem 0.65rem;
+      color: #9aa5b1 !important;
+    }
+    .cs-app-nav .nav-link:hover,
+    .cs-app-nav .nav-link:focus {
+      color: #dde3ea !important;
+    }
+    .cs-app-nav .nav-link.active {
+      color: #e8ecf0 !important;
+    }
+    body.map-page .cs-app-nav,
+    body.landing-page .cs-app-nav {
+      margin-bottom: 0 !important;
+    }
+    body:not(.map-page):not(.landing-page) .cs-app-nav {
+      margin-bottom: 1.25rem;
+    }
+    body.map-page #themeToggle,
+    body.landing-page #themeToggle {
+      display: none !important;
+    }
+
     /* ── Dark mode: ensure bg-body / bg-white follow theme ───── */
     [data-bs-theme="dark"] .bg-body,
     [data-bs-theme="dark"] .bg-white { background-color: var(--cs-bg) !important; }
@@ -80,69 +122,107 @@
 
     /* ── Landing / presentation polish ─────────────────────────── */
     .cs-landing-hero {
-      background: linear-gradient(145deg, #0d1117 0%, #132218 45%, #1a2f28 100%);
+      background: linear-gradient(155deg, #080b10 0%, #0f1a16 50%, #142820 100%);
       color: #e8ecf0;
-      padding: 3.5rem 0 2.5rem;
-      margin: -1rem calc(-50vw + 50%) 2rem;
+      padding: clamp(2.5rem, 6vw, 4rem) 0 clamp(2rem, 4vw, 3rem);
+      margin: -1rem calc(-50vw + 50%) 0;
       width: 100vw;
+      min-height: calc(100vh - 8rem);
       border-bottom: 1px solid rgba(255,255,255,.06);
+      display: flex;
+      align-items: center;
     }
+    .cs-landing-hero > .container { width: 100%; }
     .cs-landing-hero .cs-eyebrow {
-      font-size: .72rem;
+      font-size: .7rem;
       font-weight: 700;
-      letter-spacing: .12em;
+      letter-spacing: .14em;
       text-transform: uppercase;
       color: #6ecfc4;
-      margin-bottom: .75rem;
+      margin-bottom: .85rem;
     }
     .cs-landing-hero h1 {
-      font-size: clamp(2rem, 4vw, 2.75rem);
+      font-size: clamp(2.1rem, 5vw, 3rem);
       font-weight: 700;
-      letter-spacing: -.02em;
-      line-height: 1.15;
-      margin-bottom: .75rem;
+      letter-spacing: -.03em;
+      line-height: 1.1;
+      margin-bottom: 1rem;
     }
     .cs-landing-hero .cs-lead {
-      font-size: 1.05rem;
+      font-size: clamp(1rem, 2vw, 1.15rem);
       color: #9aa5b1;
-      max-width: 36rem;
-      margin-bottom: 1.5rem;
-      line-height: 1.5;
+      max-width: 34rem;
+      margin-bottom: 1.35rem;
+      line-height: 1.55;
     }
     .cs-signal-strip {
       display: flex;
       flex-wrap: wrap;
-      gap: .5rem;
-      margin: 1.25rem 0 1.75rem;
+      gap: .45rem;
+      margin: 0 0 1.5rem;
     }
     .cs-signal-pill {
       display: inline-flex;
       align-items: center;
-      gap: .4rem;
-      font-size: .78rem;
+      gap: .35rem;
+      font-size: .75rem;
       font-weight: 600;
-      padding: .35rem .7rem;
+      padding: .4rem .75rem;
       border-radius: 999px;
-      background: rgba(255,255,255,.06);
-      border: 1px solid rgba(255,255,255,.1);
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.09);
       color: #cdd5de;
     }
-    .cs-signal-pill i { color: #6ecfc4; font-size: .85rem; }
+    .cs-signal-pill i { color: #6ecfc4; font-size: .8rem; }
+    .cs-cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .65rem;
+    }
+    .cs-btn-primary {
+      background: #3daa9e;
+      border: 1px solid #3daa9e;
+      color: #0a0c10;
+      font-weight: 600;
+      padding: .65rem 1.35rem;
+    }
+    .cs-btn-primary:hover {
+      background: #6ecfc4;
+      border-color: #6ecfc4;
+      color: #0a0c10;
+    }
+    .cs-btn-secondary {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,.22);
+      color: #e8ecf0;
+      font-weight: 600;
+      padding: .65rem 1.35rem;
+    }
+    .cs-btn-secondary:hover {
+      background: rgba(255,255,255,.06);
+      border-color: rgba(255,255,255,.35);
+      color: #fff;
+    }
     .cs-hero-visual {
       position: relative;
       border-radius: 14px;
       overflow: hidden;
       background: #0a0c10;
       border: 1px solid rgba(255,255,255,.08);
-      min-height: 220px;
-      box-shadow: 0 24px 48px rgba(0,0,0,.35);
+      min-height: 240px;
+      box-shadow: 0 28px 56px rgba(0,0,0,.4);
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .cs-hero-visual:hover {
+      border-color: rgba(110,207,196,.25);
+      box-shadow: 0 32px 64px rgba(0,0,0,.48);
     }
     .cs-hero-visual-grid {
       display: grid;
       grid-template-columns: repeat(6, 1fr);
       gap: 6px;
-      padding: 18px;
-      opacity: .85;
+      padding: 20px;
+      opacity: .88;
     }
     .cs-hero-visual-cell {
       aspect-ratio: 1;
@@ -158,21 +238,66 @@
       bottom: 0;
       left: 0;
       right: 0;
-      padding: .65rem 1rem;
+      padding: .7rem 1rem;
       font-size: .72rem;
-      color: #7d8794;
-      background: linear-gradient(transparent, rgba(10,12,16,.92));
+      font-weight: 500;
+      color: #8b949e;
+      background: linear-gradient(transparent, rgba(10,12,16,.94));
     }
-    .cs-stat-row .stat-card { transition: transform .15s ease; }
-    .cs-stat-row .stat-card:hover { transform: translateY(-2px); }
-    .cs-stat-label { font-size: .78rem; color: var(--cs-section-color); }
-    .cs-quick-links { font-size: .85rem; }
-    .cs-quick-links a { text-decoration: none; font-weight: 500; }
+    .cs-hero-stats { margin-top: 0; }
+    .cs-hero-stat {
+      padding: .85rem 1rem;
+      border-radius: 10px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.07);
+      text-align: center;
+    }
+    .cs-hero-stat-value {
+      font-size: clamp(1.25rem, 3vw, 1.6rem);
+      font-weight: 700;
+      color: #6ecfc4;
+      line-height: 1.2;
+    }
+    .cs-hero-stat-value.cs-hero-stat-alert { color: #e8a090; }
+    .cs-hero-stat-label {
+      margin-top: .2rem;
+      font-size: .68rem;
+      font-weight: 600;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      color: #7d8794;
+    }
+    html.landing-page-root,
+    body.landing-page {
+      background: #0a0c10 !important;
+    }
+    body.landing-page .navbar { margin-bottom: 0 !important; }
+    body.landing-page footer {
+      margin-top: 0;
+      padding: 1rem 0;
+      background: #0a0c10;
+      border-top: 1px solid rgba(255,255,255,.06);
+      color: #6b7580;
+      font-size: .78rem;
+    }
+    body.landing-page .container:not(.cs-landing-hero .container) {
+      max-width: 100%;
+      padding: 0;
+    }
+    .cs-landing-setup {
+      margin: 0 calc(-50vw + 50%);
+      width: 100vw;
+      border-radius: 0;
+      background: rgba(255,255,255,.04);
+      color: #9aa5b1;
+      padding: .85rem 1.5rem;
+      font-size: .85rem;
+    }
   </style>
 </head>
 <body>
 <!-- Navbar always renders dark so it reads well in both page modes -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4" data-bs-theme="dark">
+<nav class="navbar navbar-expand-lg navbar-dark cs-app-nav" data-bs-theme="dark">
   <div class="container">
     <a class="navbar-brand" href="/">
       <span class="brand-leaf">&#9678;</span> CarbonShift
@@ -183,45 +308,16 @@
     <div class="collapse navbar-collapse" id="nav">
       <ul class="navbar-nav me-auto">
         <li class="nav-item">
-          <a class="nav-link {% if nav_path == '/' %}active{% endif %}" href="/">Overview</a>
-        </li>
-        <li class="nav-item">
           <a class="nav-link nav-primary {% if nav_path == '/map' %}active{% endif %}" href="/map">
             <i class="bi bi-map me-1"></i>Explore Map
           </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% if nav_insights %}active{% endif %}" href="/insights">Insights</a>
         </li>
         <li class="nav-item">
           <a class="nav-link {% if nav_path == '/methodology' %}active{% endif %}" href="/methodology">
             Data Confidence
           </a>
         </li>
-        <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle {% if nav_data_tools %}active{% endif %}"
-             href="#" data-bs-toggle="dropdown">Data Tools</a>
-          <ul class="dropdown-menu">
-            <li><h6 class="dropdown-header">Advanced</h6></li>
-            <li>
-              <a class="dropdown-item" href="/query">
-                <i class="bi bi-terminal me-1"></i>SQL Explorer
-              </a>
-            </li>
-            <li><hr class="dropdown-divider"></li>
-            <li><h6 class="dropdown-header">Download CSV</h6></li>
-            <li><a class="dropdown-item" href="/export/buildings.csv"><i class="bi bi-download me-1"></i>Buildings</a></li>
-            <li><a class="dropdown-item" href="/export/violations.csv"><i class="bi bi-download me-1"></i>Violations</a></li>
-            <li><a class="dropdown-item" href="/export/energy.csv"><i class="bi bi-download me-1"></i>Energy &amp; Emissions</a></li>
-            <li><a class="dropdown-item" href="/export/asbestos.csv"><i class="bi bi-download me-1"></i>Asbestos Projects</a></li>
-          </ul>
-        </li>
       </ul>
-      <form class="d-flex search-bar" action="/search" method="get">
-        <input class="form-control me-2" name="q" placeholder="Find a building…"
-               value="{{ request.args.get('q','') }}">
-        <button class="btn btn-success" type="submit" title="Search buildings"><i class="bi bi-search"></i></button>
-      </form>
       <button id="themeToggle" class="btn btn-link text-white ms-2 p-1 border-0"
               title="Toggle dark / light mode" onclick="toggleTheme()">
         <i id="themeIcon" class="bi bi-moon fs-5"></i>
@@ -247,7 +343,7 @@
 
 <footer>
   <div class="container text-center">
-    CarbonShift &mdash; Queens building carbon intelligence &mdash; NYC Open Data
+    CarbonShift &mdash; NYC building carbon intelligence &mdash; Queens + Manhattan
   </div>
 </footer>
 

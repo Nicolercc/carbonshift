@@ -2,25 +2,32 @@ import type { CSSProperties } from "react";
 import {
   RISK_COLORS,
   RISK_LEGEND_ORDER,
-  RISK_LABELS,
   type BackendRiskLabel,
 } from "./mapConfig";
 
+const SHORT_LABELS: Record<BackendRiskLabel, string> = {
+  Low: "Low",
+  Moderate: "Mod.",
+  High: "High",
+  Critical: "Crit.",
+  Unscored: "—",
+};
+
 export function MapLegend() {
   return (
-    <div style={styles.legend}>
-      <p style={styles.title}>Risk layer</p>
+    <div style={styles.legend} aria-label="Risk legend">
+      <span style={styles.title}>Risk</span>
       <ul style={styles.list}>
         {RISK_LEGEND_ORDER.map((key: BackendRiskLabel) => (
           <li key={key} style={styles.item}>
             <span
               style={{ ...styles.swatch, backgroundColor: RISK_COLORS[key] }}
+              aria-hidden
             />
-            <span style={styles.label}>{RISK_LABELS[key]}</span>
+            <span style={styles.label}>{SHORT_LABELS[key]}</span>
           </li>
         ))}
       </ul>
-      <p style={styles.note}>Height ≈ emissions · color = risk score</p>
     </div>
   );
 }
@@ -28,58 +35,55 @@ export function MapLegend() {
 const styles: Record<string, CSSProperties> = {
   legend: {
     position: "absolute",
-    bottom: 20,
-    left: 16,
-    background: "rgba(14, 17, 22, 0.92)",
-    backdropFilter: "blur(14px)",
-    borderRadius: 12,
-    border: "1px solid rgba(255, 255, 255, 0.07)",
-    padding: "12px 14px",
+    bottom: 14,
+    left: 12,
     zIndex: 10,
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "7px 12px",
+    borderRadius: 10,
+    background: "rgba(14, 17, 22, 0.88)",
+    backdropFilter: "blur(12px)",
+    border: "1px solid rgba(255, 255, 255, 0.07)",
+    boxShadow: "0 6px 24px rgba(0, 0, 0, 0.32)",
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     color: "#E8ECF0",
-    minWidth: 196,
-    boxShadow: "0 8px 32px rgba(0, 0, 0, 0.35)",
+    pointerEvents: "none",
   },
   title: {
-    margin: "0 0 10px",
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: 600,
-    letterSpacing: "0.06em",
+    letterSpacing: "0.07em",
     textTransform: "uppercase" as const,
     color: "#7D8794",
+    flexShrink: 0,
   },
   list: {
     listStyle: "none",
     margin: 0,
     padding: 0,
     display: "flex",
-    flexDirection: "column" as const,
-    gap: 7,
+    flexWrap: "wrap" as const,
+    alignItems: "center",
+    gap: "6px 10px",
   },
   item: {
     display: "flex",
     alignItems: "center",
-    gap: 10,
+    gap: 5,
   },
   swatch: {
-    width: 12,
-    height: 12,
-    borderRadius: 3,
+    width: 10,
+    height: 10,
+    borderRadius: 2,
     flexShrink: 0,
     boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
   },
   label: {
-    fontSize: 13,
-    fontWeight: 500,
-    color: "#CDD5DE",
-  },
-  note: {
-    margin: "12px 0 0",
     fontSize: 11,
-    lineHeight: 1.45,
-    color: "#7D8794",
-    maxWidth: 220,
+    fontWeight: 500,
+    color: "#B8C2CC",
   },
 };
